@@ -1,0 +1,2800 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DBNotebook AI: Database Reports Advisor Pro</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PDF.js for text extraction and rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- Marked.js for Markdown rendering in chat -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'arxiv-red': '#b31b1b',
+                        'arxiv-red-dark': '#8a1313',
+                        'arxiv-bg': '#f9f9f9',
+                        'arxiv-bg-dark': '#121212',
+                        'arxiv-card-dark': '#1e1e1e',
+                        'arxiv-gray': '#e5e5e5'
+                    },
+                    fontFamily: {
+                        'serif': ['Georgia', 'Times New Roman', 'serif'],
+                        'sans': ['Inter', 'Helvetica', 'Arial', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background: #4b5563; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Markdown styles for chatbot output */
+        .prose p { margin-bottom: 0.75em; }
+        .prose h1, .prose h2, .prose h3 { font-weight: bold; margin-top: 1em; margin-bottom: 0.5em; }
+        .prose ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 0.75em; }
+        .prose ol { list-style-type: decimal; padding-left: 1.5em; margin-bottom: 0.75em; }
+        .prose code { background-color: #f1f5f9; padding: 0.1em 0.3em; border-radius: 0.25rem; font-family: monospace; font-size: 0.9em; }
+        .dark .prose code { background-color: #2d3748; color: #e2e8f0; }
+        .prose pre { background-color: #1e293b; color: #fff; padding: 1em; border-radius: 0.5rem; overflow-x: auto; margin-bottom: 1em; }
+        .prose pre code { background-color: transparent; color: inherit; padding: 0; }
+        .prose strong { font-weight: 600; color: inherit; }
+        
+        /* Smooth height transition */
+        .collapsible-content {
+            transition: max-height 0.3s ease-out;
+            max-height: 0px;
+            overflow: hidden;
+        }
+        .collapsible-content.open {
+            max-height: 1000px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="h-screen w-full flex flex-col font-sans bg-arxiv-bg dark:bg-arxiv-bg-dark text-gray-800 dark:text-gray-200 transition-colors duration-200 overflow-hidden">
+
+    <!-- Header Section -->
+    <header class="bg-arxiv-red dark:bg-arxiv-red-dark text-white py-2.5 px-6 flex justify-between items-center shadow-md z-20">
+        <div class="flex items-center gap-4">
+            <h1 class="text-2xl font-bold tracking-tight border-r border-white/30 pr-4 font-serif">DBNotebook<span class="font-light opacity-80"> AI</span></h1>
+            <span class="text-sm font-sans opacity-90 hidden sm:block">Database Notebook & Report Analyzer Pro</span>
+        </div>
+        
+        <div class="flex items-center gap-4 font-sans text-sm">
+            <!-- Expert Selector -->
+            <div class="flex items-center gap-1.5">
+                <span class="text-xs opacity-85 hidden md:inline">Mode:</span>
+                <select id="expertSelector" class="bg-white/15 hover:bg-white/20 text-white border border-white/20 rounded px-2.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-white transition-all cursor-pointer">
+                    <option value="general" class="text-gray-800">General Assistant</option>
+                    <option value="oracle" class="text-gray-800">Oracle DBA Expert</option>
+                    <option value="sql" class="text-gray-800">SQL Performance Expert</option>
+                    <option value="capacity" class="text-gray-800">Capacity Planning Expert</option>
+                    <option value="support" class="text-gray-800">Production Support Engineer</option>
+                </select>
+            </div>
+
+            <!-- Light/Dark Toggle -->
+            <button onclick="toggleDarkMode()" class="p-1.5 rounded-full hover:bg-white/10 transition-colors" title="Toggle Theme">
+                <svg id="sunIcon" class="w-4 h-4 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                <svg id="moonIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+            </button>
+
+            <!-- API Key Input -->
+            <div class="relative flex items-center">
+                <input 
+                    type="password" 
+                    id="apiKeyInput" 
+                    placeholder="Enter Gemini API Key" 
+                    class="pl-3 pr-8 py-1 text-xs text-black rounded shadow-inner w-40 sm:w-48 focus:outline-none focus:ring-1 focus:ring-red-300 transition-all bg-white dark:bg-gray-100"
+                >
+                <div id="apiIndicator" class="absolute right-2 w-2.5 h-2.5 rounded-full bg-red-500 border border-white/50 shadow-sm transition-colors duration-300" title="API Key Required"></div>
+            </div>
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-xs underline opacity-80 hover:opacity-100 hidden md:block">Get Key</a>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="flex-1 flex overflow-hidden w-full relative">
+        
+        <!-- Left Sidebar: Document Management & Actions -->
+        <aside class="w-64 bg-white dark:bg-arxiv-card-dark border-r border-gray-200 dark:border-gray-800 flex flex-col shadow-sm z-10 flex-shrink-0">
+            <div class="p-4 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-zinc-900 flex flex-col gap-2.5">
+                <h2 class="font-bold text-gray-700 dark:text-gray-300 text-xs uppercase tracking-wider">Reports Repository</h2>
+                <button 
+                    onclick="document.getElementById('fileInput').click()" 
+                    class="w-full bg-arxiv-red hover:bg-red-800 text-white text-xs font-semibold py-2 px-4 rounded transition-colors flex justify-center items-center gap-2 shadow-sm"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"></path></svg>
+                    Upload Database PDFs
+                </button>
+                <input type="file" id="fileInput" multiple accept="application/pdf" class="hidden" onchange="handleFiles(event)">
+                
+                <button 
+                    id="compareBtn" 
+                    disabled
+                    onclick="openComparisonModal()" 
+                    class="w-full border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-700 dark:text-gray-300 text-xs py-1.5 px-4 rounded transition-colors flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h3m18 4H10a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V11a2 2 0 0 0-2-2z"></path></svg>
+                    Compare Reports (<span id="selectedCount">0</span>)
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-2" id="documentList">
+                <div class="text-center text-gray-400 text-xs italic mt-8 px-4">
+                    No database reports loaded yet.<br>Provide Oracle AWR, ASH, Statspack, or custom reports.
+                </div>
+            </div>
+
+            <!-- Dynamic suggested questions panel -->
+            <div id="suggestedQuestionsSection" class="p-3 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-zinc-900 hidden">
+                <h3 class="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 1 1 7.072 0l-.548.547A3.374 3.374 0 0 0 14 18.469V19a2 2 0 0 1-2 2h0a2 2 0 0 1-2-2v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                    Suggested Questions
+                </h3>
+                <div id="suggestedQuestionsList" class="flex flex-col gap-1.5 max-h-48 overflow-y-auto">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- Center: Dashboard, Tab switcher & Display Canvas/Viewer -->
+        <main class="flex-1 bg-gray-100 dark:bg-zinc-900 flex flex-col relative h-full overflow-hidden border-r border-gray-200 dark:border-gray-800">
+            <!-- Top Dashboard Section (Hidden by default, shown when reports are uploaded) -->
+            <div id="dbDashboard" class="bg-white dark:bg-arxiv-card-dark border-b border-gray-200 dark:border-gray-800 p-4 shrink-0 hidden">
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
+                    <div>
+                        <h2 class="text-md font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                            <span class="inline-block w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
+                            Database Health Status (Report-Derived)
+                        </h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Values extracted automatically from the active document.</p>
+                    </div>
+                    
+                    <!-- Circular Health Score -->
+                    <div class="flex items-center gap-3">
+                        <div class="relative w-12 h-12 flex items-center justify-center">
+                            <svg class="w-full h-full transform -rotate-90">
+                                <circle cx="24" cy="24" r="20" class="stroke-gray-200 dark:stroke-gray-700 fill-none" stroke-width="4"></circle>
+                                <circle cx="24" cy="24" r="20" id="healthScoreProgress" class="stroke-emerald-500 fill-none transition-all duration-1000" stroke-width="4" stroke-dasharray="125.6" stroke-dashoffset="125.6"></circle>
+                            </svg>
+                            <span id="healthScoreValue" class="absolute text-xs font-bold text-gray-800 dark:text-white">--</span>
+                        </div>
+                        <div>
+                            <div class="text-xs font-semibold text-gray-700 dark:text-gray-300">Overall Health Score</div>
+                            <div id="healthScoreStatus" class="text-[10px] uppercase tracking-wider font-bold text-emerald-500">Awaiting Data</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Metrics Grid -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <!-- CPU Metric -->
+                    <div class="bg-gray-50 dark:bg-zinc-900 p-2.5 rounded border border-gray-150 dark:border-zinc-800">
+                        <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">CPU Utilization</div>
+                        <div class="flex items-baseline gap-1 mt-1">
+                            <span id="cpuVal" class="text-lg font-bold text-gray-700 dark:text-gray-300">--%</span>
+                            <span id="cpuStatus" class="w-2 h-2 rounded-full bg-gray-300"></span>
+                        </div>
+                    </div>
+                    <!-- Memory Metric -->
+                    <div class="bg-gray-50 dark:bg-zinc-900 p-2.5 rounded border border-gray-150 dark:border-zinc-800">
+                        <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Memory Usage</div>
+                        <div class="flex items-baseline gap-1 mt-1">
+                            <span id="memVal" class="text-lg font-bold text-gray-700 dark:text-gray-300">--%</span>
+                            <span id="memStatus" class="w-2 h-2 rounded-full bg-gray-300"></span>
+                        </div>
+                    </div>
+                    <!-- Tablespace Metric -->
+                    <div class="bg-gray-50 dark:bg-zinc-900 p-2.5 rounded border border-gray-150 dark:border-zinc-800">
+                        <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Tablespace Full</div>
+                        <div class="flex items-baseline gap-1 mt-1">
+                            <span id="tblVal" class="text-lg font-bold text-gray-700 dark:text-gray-300">--%</span>
+                            <span id="tblStatus" class="w-2 h-2 rounded-full bg-gray-300"></span>
+                        </div>
+                    </div>
+                    <!-- Active Sessions Metric -->
+                    <div class="bg-gray-50 dark:bg-zinc-900 p-2.5 rounded border border-gray-150 dark:border-zinc-800">
+                        <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Active Sessions</div>
+                        <div class="flex items-baseline gap-1 mt-1">
+                            <span id="sessVal" class="text-lg font-bold text-gray-700 dark:text-gray-300">--</span>
+                            <span id="sessStatus" class="w-2 h-2 rounded-full bg-gray-300"></span>
+                        </div>
+                    </div>
+                    <!-- Blocking Sessions Metric -->
+                    <div class="bg-gray-50 dark:bg-zinc-900 p-2.5 rounded border border-gray-150 dark:border-zinc-800">
+                        <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Blocking Sessions</div>
+                        <div class="flex items-baseline gap-1 mt-1">
+                            <span id="blockVal" class="text-lg font-bold text-gray-700 dark:text-gray-300">--</span>
+                            <span id="blockStatus" class="w-2 h-2 rounded-full bg-gray-300"></span>
+                        </div>
+                    </div>
+                    <!-- Availability Metric -->
+                    <div class="bg-gray-50 dark:bg-zinc-900 p-2.5 rounded border border-gray-150 dark:border-zinc-800">
+                        <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Availability</div>
+                        <div class="flex items-baseline gap-1 mt-1">
+                            <span id="availVal" class="text-lg font-bold text-gray-700 dark:text-gray-300">--%</span>
+                            <span id="availStatus" class="w-2 h-2 rounded-full bg-gray-300"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Headers for Viewer Section -->
+            <div class="bg-gray-150 dark:bg-zinc-900/60 px-4 py-2 border-b border-gray-250 dark:border-gray-800 flex justify-between items-center shrink-0">
+                <div class="flex flex-wrap gap-1.5">
+                    <button id="tabPdfBtn" onclick="switchViewerTab('pdf')" class="px-3 py-1 text-xs font-semibold rounded bg-white dark:bg-zinc-800 text-gray-850 dark:text-white shadow-sm border border-gray-200 dark:border-gray-700">PDF Viewer</button>
+                    <button id="tabRecommendBtn" onclick="switchViewerTab('recommendations')" class="px-3 py-1 text-xs font-semibold rounded hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-600 dark:text-gray-400">Action Plan & Recommendations</button>
+                    <button id="tabMindMapBtn" onclick="switchViewerTab('mindmap')" class="px-3 py-1 text-xs font-semibold rounded hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-blue-500"></span>
+                        Interactive Mind Map
+                    </button>
+                    <button id="tabPresentationBtn" onclick="switchViewerTab('presentation')" class="px-3 py-1 text-xs font-semibold rounded hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-purple-500"></span>
+                        AI Presentation Workspace
+                    </button>
+                </div>
+                <div id="viewerDocName" class="text-xs italic text-gray-500 dark:text-gray-400 truncate max-w-xs sm:max-w-md"></div>
+            </div>
+
+            <!-- Loading Overlay for Viewer -->
+            <div id="viewerLoading" class="absolute inset-0 bg-gray-100/90 dark:bg-zinc-900/90 backdrop-blur-sm z-30 flex flex-col justify-center items-center hidden">
+                <div class="w-8 h-8 border-4 border-arxiv-red border-t-transparent rounded-full animate-spin"></div>
+                <p class="mt-4 text-xs font-medium text-gray-600 dark:text-gray-400" id="loadingText">Processing Document...</p>
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyViewer" class="absolute inset-0 flex flex-col justify-center items-center text-gray-400 dark:text-gray-600 z-10">
+                <svg class="w-16 h-16 mb-4 opacity-50" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                <p class="text-md font-medium">Upload and select database reports to render PDF data & dashboards</p>
+            </div>
+
+            <!-- TAB 1: PDF Container -->
+            <div id="pdfViewerContainer" class="w-full flex-1 overflow-y-auto relative z-0 hidden flex flex-col items-center py-6 px-4 bg-gray-200 dark:bg-zinc-950"></div>
+
+            <!-- TAB 2: Recommendations Interface -->
+            <div id="recommendationsContainer" class="w-full flex-1 overflow-y-auto p-6 hidden bg-white dark:bg-zinc-900">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-800 dark:text-white">DBA Recommendations Engine</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Prioritized advisory checklist constructed by AI analysis of report diagnostics.</p>
+                    </div>
+                    <button onclick="exportSectionToText('recommendations')" class="bg-gray-800 hover:bg-gray-700 text-white text-xs px-3 py-1.5 rounded transition-colors flex items-center gap-1.5 shadow">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Export Recommendations
+                    </button>
+                </div>
+
+                <div id="recCategories" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <!-- Stat boxes -->
+                    <div class="bg-red-50 dark:bg-red-950/20 p-3 rounded border border-red-200 dark:border-red-900/50 flex justify-between items-center">
+                        <div>
+                            <span class="text-xs font-bold text-red-700 dark:text-red-400 uppercase">Critical Priority</span>
+                            <h3 id="recCriticalCount" class="text-2xl font-bold text-red-800 dark:text-red-300">0</h3>
+                        </div>
+                        <span class="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/60 flex items-center justify-center text-red-700 dark:text-red-300">🚨</span>
+                    </div>
+                    <div class="bg-amber-50 dark:bg-amber-950/20 p-3 rounded border border-amber-200 dark:border-amber-900/50 flex justify-between items-center">
+                        <div>
+                            <span class="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase">High Priority</span>
+                            <h3 id="recHighCount" class="text-2xl font-bold text-amber-800 dark:text-amber-300">0</h3>
+                        </div>
+                        <span class="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/60 flex items-center justify-center text-amber-700 dark:text-amber-300">⚠️</span>
+                    </div>
+                    <div class="bg-blue-50 dark:bg-blue-950/20 p-3 rounded border border-blue-200 dark:border-blue-900/50 flex justify-between items-center">
+                        <div>
+                            <span class="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase">Medium Priority</span>
+                            <h3 id="recMediumCount" class="text-2xl font-bold text-blue-800 dark:text-blue-300">0</h3>
+                        </div>
+                        <span class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/60 flex items-center justify-center text-blue-700 dark:text-blue-300">📊</span>
+                    </div>
+                    <div class="bg-green-50 dark:bg-green-950/20 p-3 rounded border border-green-200 dark:border-green-900/50 flex justify-between items-center">
+                        <div>
+                            <span class="text-xs font-bold text-green-700 dark:text-green-400 uppercase">Low Priority</span>
+                            <h3 id="recLowCount" class="text-2xl font-bold text-green-800 dark:text-green-300">0</h3>
+                        </div>
+                        <span class="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/60 flex items-center justify-center text-green-700 dark:text-green-300">✔</span>
+                    </div>
+                </div>
+
+                <div class="space-y-4" id="recommendationsList">
+                    <div class="text-center text-gray-500 py-12 italic">
+                        Upload database reports to allow the Advisor Engine to construct structured DBA advice.
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: Interactive Mind Map & Knowledge Graph -->
+            <div id="mindmapContainer" class="w-full flex-1 flex flex-col relative hidden bg-white dark:bg-zinc-950 overflow-hidden">
+                <!-- Toolbar for Map controls -->
+                <div class="p-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-zinc-900 flex justify-between items-center z-10">
+                    <div class="flex items-center gap-3">
+                        <!-- Mode Selector Toggle -->
+                        <div class="bg-gray-200 dark:bg-zinc-800 p-0.5 rounded-lg flex">
+                            <button id="btnMindMapMode" onclick="setMapLayout('mindmap')" class="px-3 py-1 text-xs font-semibold rounded-md bg-white dark:bg-zinc-700 text-gray-850 dark:text-white shadow-sm transition-all">Mind Map Mode</button>
+                            <button id="btnKnowledgeGraphMode" onclick="setMapLayout('knowledge')" class="px-3 py-1 text-xs font-semibold rounded-md text-gray-500 dark:text-gray-400 transition-all">Knowledge Graph Mode</button>
+                        </div>
+                        <span class="text-[11px] text-gray-400 dark:text-gray-500">Double click node to collapse/expand</span>
+                    </div>
+                    
+                    <!-- Control buttons -->
+                    <div class="flex items-center gap-1.5">
+                        <button onclick="mapZoom(1.2)" class="p-1.5 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded text-xs font-bold hover:bg-gray-100" title="Zoom In">+</button>
+                        <button onclick="mapZoom(0.8)" class="p-1.5 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded text-xs font-bold hover:bg-gray-100" title="Zoom Out">-</button>
+                        <button onclick="mapRecenter()" class="px-2 py-1 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded text-[11px] font-medium hover:bg-gray-100" title="Fit to View">Recenter</button>
+                        
+                        <div class="h-4 w-[1px] bg-gray-300 dark:bg-zinc-700 mx-1"></div>
+                        
+                        <button onclick="generateMindMapFromAI()" class="px-2.5 py-1 bg-arxiv-red hover:bg-red-800 text-white rounded text-[11px] font-semibold flex items-center gap-1">
+                            <svg class="w-3 h-3 animate-spin hidden" id="mapGenSpinner" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            Re-Generate AI Map
+                        </button>
+                        
+                        <!-- Dropdown Export Map -->
+                        <div class="relative inline-block text-left">
+                            <button onclick="toggleMapExportDropdown()" class="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-white rounded text-[11px] font-semibold flex items-center gap-1">
+                                Export Map ▾
+                            </button>
+                            <div id="mapExportDropdown" class="origin-top-right absolute right-0 mt-2 w-40 rounded-md shadow-lg bg-white dark:bg-zinc-800 ring-1 ring-black ring-opacity-5 z-20 hidden">
+                                <div class="py-1">
+                                    <button onclick="exportMap('png')" class="block w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700">Export as PNG</button>
+                                    <button onclick="exportMap('pdf')" class="block w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700">Export as PDF</button>
+                                    <button onclick="exportMap('json')" class="block w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700">Export JSON Structure</button>
+                                    <button onclick="generateSlidesFromActiveMap()" class="block w-full text-left px-4 py-2 text-xs text-purple-600 dark:text-purple-400 font-bold hover:bg-purple-50 dark:hover:bg-zinc-700">Create Slides From Map</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Canvas Element and Pan/Zoom Area -->
+                <div class="flex-1 w-full relative overflow-hidden" id="mapCanvasContainer">
+                    <canvas id="mindmapCanvas" class="w-full h-full cursor-grab active:cursor-grabbing"></canvas>
+
+                    <!-- Sidebar detail drawer for clicked nodes -->
+                    <div id="nodeDetailDrawer" class="absolute top-4 right-4 bottom-4 w-80 bg-white/95 dark:bg-zinc-900/95 backdrop-blur shadow-2xl border border-gray-200 dark:border-gray-800 rounded-xl transform translate-x-96 transition-transform duration-300 z-10 flex flex-col p-4 overflow-hidden">
+                        <div class="flex justify-between items-start border-b border-gray-200 dark:border-zinc-800 pb-3 mb-3">
+                            <div>
+                                <span id="nodeBadge" class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded">INFO</span>
+                                <h3 id="nodeDrawerTitle" class="text-sm font-bold text-gray-900 dark:text-white mt-1.5 leading-tight">Node Details</h3>
+                            </div>
+                            <button onclick="closeNodeDrawer()" class="text-gray-400 hover:text-gray-650 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </div>
+                        <div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs">
+                            <div>
+                                <h4 class="font-bold text-gray-400 uppercase text-[10px]">Summary</h4>
+                                <p id="nodeDrawerSummary" class="text-gray-700 dark:text-gray-300 mt-1 leading-relaxed"></p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-gray-400 uppercase text-[10px]">Detailed Analysis</h4>
+                                <p id="nodeDrawerDetails" class="text-gray-600 dark:text-gray-400 mt-1 leading-relaxed whitespace-pre-wrap"></p>
+                            </div>
+                            <div id="nodeDrawerConfidenceArea">
+                                <h4 class="font-bold text-gray-400 uppercase text-[10px] flex justify-between">
+                                    <span>AI Discovery Relationship Linkages</span>
+                                </h4>
+                                <div id="nodeDrawerConfidence" class="mt-1 flex flex-col gap-2">
+                                    <!-- Populated dynamically if relationships exist -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: Minimalist AI Presentation Workspace -->
+            <div id="presentationContainer" class="w-full flex-1 flex flex-col relative hidden bg-gray-100 dark:bg-zinc-950 overflow-hidden">
+                <!-- Toolbar presentation controls -->
+                <div class="p-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-zinc-900 flex justify-between items-center z-10 shrink-0">
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded bg-purple-500"></span>
+                            AI Presentation Workspace
+                        </span>
+                        <div class="h-4 w-[1px] bg-gray-300 dark:bg-zinc-700"></div>
+                        <button onclick="generateAIPresentation()" class="px-2.5 py-1 bg-purple-650 hover:bg-purple-800 text-white text-[11px] font-semibold rounded flex items-center gap-1">
+                            <svg class="w-3 h-3 animate-spin hidden" id="presGenSpinner" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            Re-Synthesize Slides (AI)
+                        </button>
+                    </div>
+                    
+                    <div class="flex items-center gap-1.5">
+                        <button onclick="prevSlide()" class="p-1 px-2 bg-white dark:bg-zinc-850 rounded border border-gray-200 dark:border-zinc-700 text-xs">◀ Prev</button>
+                        <span class="text-xs text-gray-500 dark:text-gray-400 font-mono"><span id="slideCurrent">1</span>/8</span>
+                        <button onclick="nextSlide()" class="p-1 px-2 bg-white dark:bg-zinc-850 rounded border border-gray-200 dark:border-zinc-700 text-xs">Next ▶</button>
+                        
+                        <div class="h-4 w-[1px] bg-gray-300 dark:bg-zinc-700 mx-1"></div>
+                        <button onclick="playSlideshowFullscreen()" class="p-1 px-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold">🖥 Play Fullscreen</button>
+                        
+                        <!-- Dropdown Export Presentation -->
+                        <div class="relative inline-block text-left">
+                            <button onclick="togglePresExportDropdown()" class="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-white rounded text-[11px] font-semibold flex items-center gap-1">
+                                Export Slides ▾
+                            </button>
+                            <div id="presExportDropdown" class="origin-top-right absolute right-0 mt-2 w-44 rounded-md shadow-lg bg-white dark:bg-zinc-800 ring-1 ring-black ring-opacity-5 z-20 hidden">
+                                <div class="py-1">
+                                    <button onclick="exportPresentation('html')" class="block w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700">Export as HTML Deck</button>
+                                    <button onclick="exportPresentation('pdf')" class="block w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700">Export as PDF (Printable)</button>
+                                    <button onclick="exportPresentation('json')" class="block w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700">Export as JSON Schema</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide Canvas viewport -->
+                <div class="flex-1 flex justify-center items-center p-6 sm:p-12" id="slideViewerArea">
+                    <div id="presentationSlideDeck" class="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl shadow-xl w-full max-w-4xl aspect-[16/9] flex flex-col p-10 justify-between transition-colors duration-200 select-none">
+                        <!-- Slide Top (Branding or Metadata) -->
+                        <div class="flex justify-between items-center text-[10px] tracking-widest font-bold uppercase text-arxiv-red dark:text-red-400 select-none">
+                            <span id="slideHeaderTopic">DBNotebook AI Executive Presentation</span>
+                            <span id="slideHeaderPage">SLIDE 01</span>
+                        </div>
+
+                        <!-- Slide Core Content Area -->
+                        <div class="flex-1 flex flex-col justify-center my-6" id="slideContentDynamic">
+                            <h2 class="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-4 select-text" id="slideTitle">Initial Database Audit</h2>
+                            <div class="text-sm text-gray-600 dark:text-gray-300 space-y-2 select-text" id="slideBody">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+
+                        <!-- Slide Bottom (Footer Metadata) -->
+                        <div class="flex justify-between items-center text-[11px] font-medium text-gray-450 dark:text-zinc-500 border-t border-gray-100 dark:border-zinc-800/80 pt-4 shrink-0 select-none">
+                            <span id="slideFooterReportName">Report: --</span>
+                            <span id="slideFooterDate">Generated Slide Workspace</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Sidebar: Interactive Chat with Collapsible AI Executive Summary -->
+        <aside class="w-[420px] bg-white dark:bg-arxiv-card-dark border-l border-gray-200 dark:border-gray-800 flex flex-col shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)] z-10 flex-shrink-0 font-sans overflow-hidden">
+            <!-- Chat Head -->
+            <div class="p-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-zinc-900 flex justify-between items-center">
+                <h2 class="font-bold text-gray-700 dark:text-gray-300 text-xs uppercase tracking-wider flex items-center gap-2">
+                    <svg class="w-4 h-4 text-arxiv-red" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    Analysis Assistant Chat
+                </h2>
+                <button onclick="clearChat()" class="text-[11px] text-gray-500 hover:text-arxiv-red font-medium transition-colors">Clear History</button>
+            </div>
+            
+            <!-- Messages Container -->
+            <div id="chatHistory" class="flex-1 p-4 overflow-y-auto flex flex-col gap-4 text-xs bg-white dark:bg-zinc-950/20">
+                <!-- Welcome Message -->
+                <div class="flex flex-col items-start max-w-[95%]">
+                    <div class="bg-gray-100 dark:bg-zinc-850 border border-gray-250 dark:border-zinc-800 text-gray-800 dark:text-gray-200 rounded-lg rounded-tl-none px-3.5 py-2.5 shadow-sm prose prose-sm max-w-none">
+                        <p>Welcome to <strong>DBNotebook AI Advisor</strong>.</p>
+                        <p class="text-[11px] leading-relaxed">Upload target database logs/reports on the left. The app parses structural stats and delivers answers contextualized by your uploaded assets.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Collapsible Executive AI Summary Panel -->
+            <div class="border-t border-gray-200 dark:border-gray-800 bg-slate-50 dark:bg-zinc-900 shrink-0">
+                <button onclick="toggleSummaryPanel()" class="w-full p-3 flex justify-between items-center hover:bg-slate-100 dark:hover:bg-zinc-850 transition-colors focus:outline-none">
+                    <span class="font-bold text-gray-700 dark:text-gray-300 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                        <svg class="w-4 h-4 text-sky-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z"></path></svg>
+                        AI Executive Summary
+                    </span>
+                    <span id="summaryArrow" class="transform transition-transform text-gray-500 text-xs">▼</span>
+                </button>
+                <div id="summaryContentPanel" class="collapsible-content">
+                    <div class="p-3.5 pt-0 text-xs max-h-[300px] overflow-y-auto border-t border-gray-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950">
+                        <div id="aiSummaryArea" class="prose prose-sm dark:prose-invert max-w-none space-y-3 pt-3 text-gray-600 dark:text-gray-300">
+                            <p class="italic text-gray-400">Ready to automatically summarize reports. Upload database metrics/PDF files to trigger.</p>
+                        </div>
+                        <div id="aiSummaryExportBtn" class="mt-3 flex justify-end hidden">
+                            <button onclick="exportSectionToText('summary')" class="bg-sky-700 hover:bg-sky-800 text-white text-[10px] px-2.5 py-1.5 rounded transition-colors flex items-center gap-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                Export Executive Summary
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input area -->
+            <div class="p-3 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-arxiv-card-dark shrink-0">
+                <div id="errorBanner" class="hidden mb-2 text-[11px] text-red-600 bg-red-50 dark:bg-red-950/20 p-2 rounded border border-red-200 dark:border-red-900/50 break-words"></div>
+                <div class="relative">
+                    <textarea 
+                        id="chatInput" 
+                        rows="2" 
+                        placeholder="Ask anything about performance metrics..." 
+                        class="w-full pl-3 pr-10 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-zinc-950 text-gray-850 dark:text-white rounded-lg focus:outline-none focus:ring-1 focus:ring-arxiv-red focus:border-transparent resize-none text-xs disabled:bg-gray-100 dark:disabled:bg-zinc-800 disabled:cursor-not-allowed"
+                        onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }"
+                    ></textarea>
+                    <button 
+                        id="sendBtn"
+                        onclick="sendMessage()" 
+                        class="absolute right-2 bottom-2 p-1.5 bg-arxiv-red hover:bg-red-800 text-white rounded-md transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    </button>
+                </div>
+                <div class="text-[10px] text-gray-400 dark:text-zinc-500 text-center mt-2 font-medium">
+                    Role context automatically adopts active Advisor Mode.
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- REPORT COMPARISON MODAL -->
+    <div id="comparisonModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-center items-center hidden p-4">
+        <div class="bg-white dark:bg-arxiv-card-dark rounded-xl max-w-4xl w-full max-h-[85vh] flex flex-col shadow-2xl border border-gray-200 dark:border-gray-800">
+            <div class="p-4 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-zinc-900 flex justify-between items-center rounded-t-xl">
+                <div class="flex items-center gap-2">
+                    <span class="p-1 rounded bg-arxiv-red/10 text-arxiv-red font-bold text-xs">AI DIFF</span>
+                    <h2 class="text-md font-bold text-gray-800 dark:text-white font-sans">Multi-Report Differential Comparison</h2>
+                </div>
+                <button onclick="closeComparisonModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-6 space-y-6 text-xs font-sans">
+                <!-- Comparison Grid -->
+                <div>
+                    <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Resource & Diagnostic Breakdown</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-zinc-900/60">
+                                    <th class="p-2.5 font-bold text-gray-700 dark:text-gray-300">Metric Segment</th>
+                                    <th id="compHeader1" class="p-2.5 font-bold text-gray-700 dark:text-gray-300 truncate max-w-xs">Report A</th>
+                                    <th id="compHeader2" class="p-2.5 font-bold text-gray-700 dark:text-gray-300 truncate max-w-xs">Report B</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-150 dark:divide-zinc-800" id="comparisonTableBody">
+                                <!-- Filled by Comparison Algorithm -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- AI Changes Summary Text Area -->
+                <div class="bg-gray-50 dark:bg-zinc-900/40 p-4 rounded-lg border border-gray-200 dark:border-gray-800">
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="font-bold text-gray-750 dark:text-gray-300 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                            AI Differential Analysis & Warnings
+                        </h4>
+                        <button onclick="exportSectionToText('comparison')" class="bg-blue-750 hover:bg-blue-800 text-white text-[10px] px-2 py-1 rounded transition-colors flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            Export Comparison Sheet
+                        </button>
+                    </div>
+                    
+                    <div id="aiComparisonFeedback" class="prose prose-sm dark:prose-invert max-w-none text-gray-600 dark:text-gray-300 space-y-2">
+                        <div class="flex items-center justify-center gap-2 py-6 italic text-gray-400">
+                            <div class="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                            Awaiting AI delta analytics...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 bg-gray-50 dark:bg-zinc-900/40 border-t border-gray-200 dark:border-gray-800 flex justify-end">
+                <button onclick="closeComparisonModal()" class="px-4 py-2 bg-gray-200 dark:bg-zinc-800 hover:bg-gray-300 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-200 text-xs rounded font-semibold transition-colors">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toaster -->
+    <div id="toast" class="fixed bottom-4 left-4 z-50 transform translate-y-12 opacity-0 transition-all duration-300 bg-gray-900 text-white text-xs px-4 py-3 rounded-lg shadow-xl flex items-center gap-2 pointer-events-none">
+        <span id="toastIcon">ℹ️</span>
+        <span id="toastMessage">Notification details here</span>
+    </div>
+
+    <!-- Application Logic -->
+    <script>
+        // --- Configuration & State ---
+        const apiKey = ""; 
+        let documents = []; // Array of { id, name, file, objectUrl, textContent, metrics, summary, recommendations, checked, mindMapData, presentationData }
+        let activeDocId = null;
+        let activeViewerTab = 'pdf'; // 'pdf' | 'recommendations' | 'mindmap' | 'presentation'
+        let chatMessages = []; // Array of { role: 'user'|'model', parts: [{ text }] }
+        
+        // Mindmap canvas state
+        let mapScale = 1.0;
+        let mapOffset = { x: 0, y: 0 };
+        let isDraggingMap = false;
+        let dragStart = { x: 0, y: 0 };
+        let mapNodes = [];
+        let mapEdges = [];
+        let selectedNode = null;
+        let mapLayoutType = 'mindmap'; // 'mindmap' (concentric tree) | 'knowledge' (network linkages)
+        let draggedNode = null;
+
+        // Presentation slide state
+        let currentSlideIndex = 0;
+        let activeSlides = [];
+
+        // Expert mode configuration templates
+        const expertRoles = {
+            general: {
+                title: "General Database Assistant",
+                systemPrompt: "You are an all-around database administrator assistant. Help troubleshoot questions across Oracle, MySQL, Postgres, and SQL Server instances, prioritizing clarity, accuracy, and best-practice system design."
+            },
+            oracle: {
+                title: "Oracle DBA Expert",
+                systemPrompt: "You are a distinguished Principal Oracle DBA. You specialize in performance tuning (AWR, ASH, Statspack diagnostics), instance recovery, clusterware (RAC), ASM, backup strategies (RMAN), and automated storage management. Always reference Oracle-specific metric parameters, wait events (e.g., DB CPU, db file sequential read), and init.ora suggestions."
+            },
+            sql: {
+                title: "SQL Performance Expert",
+                systemPrompt: "You are an elite SQL Performance Tuning expert. You analyze query execution plans, indexes, partition strategies, and optimizer behaviors. Recommend structural modifications (re-indexing, stats gathering), query restructuring, and specify optimizations like optimizer hints where applicable."
+            },
+            capacity: {
+                title: "Capacity Planning Expert",
+                systemPrompt: "You are a seasoned Capacity Planning Architect. Look closely at tablespace growth curves, CPU headroom, memory pagination rates, system IOPS limits, and storage constraints. Predict future resource exhaustion times and recommend appropriate tiering or scale-up plans."
+            },
+            support: {
+                title: "Production Support Engineer",
+                systemPrompt: "You are an on-call Production Support Lead. Your main goal is restoring service, tracing live locks, fixing transaction blocks, detecting high active sessions, and identifying critical resource bottlenecks in a quick and operational fashion."
+            }
+        };
+
+        // Standard questions pool based on database content
+        const baseQuestions = [
+            "What are the critical database issues identified in this report?",
+            "Identify performance bottlenecks or heavy wait events.",
+            "Are there any tablespaces nearing capacity thresholds?",
+            "What recommendations are most critical to apply immediately?",
+            "Examine CPU and memory utilization patterns."
+        ];
+
+        // Configure PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // --- UI Element References ---
+        const ui = {
+            apiKeyInput: document.getElementById('apiKeyInput'),
+            apiIndicator: document.getElementById('apiIndicator'),
+            fileInput: document.getElementById('fileInput'),
+            docList: document.getElementById('documentList'),
+            pdfViewerContainer: document.getElementById('pdfViewerContainer'),
+            emptyViewer: document.getElementById('emptyViewer'),
+            viewerLoading: document.getElementById('viewerLoading'),
+            loadingText: document.getElementById('loadingText'),
+            chatHistory: document.getElementById('chatHistory'),
+            chatInput: document.getElementById('chatInput'),
+            sendBtn: document.getElementById('sendBtn'),
+            errorBanner: document.getElementById('errorBanner'),
+            dbDashboard: document.getElementById('dbDashboard'),
+            viewerDocName: document.getElementById('viewerDocName'),
+            
+            // Dashboard values
+            cpuVal: document.getElementById('cpuVal'),
+            cpuStatus: document.getElementById('cpuStatus'),
+            memVal: document.getElementById('memVal'),
+            memStatus: document.getElementById('memStatus'),
+            tblVal: document.getElementById('tblVal'),
+            tblStatus: document.getElementById('tblStatus'),
+            sessVal: document.getElementById('sessVal'),
+            sessStatus: document.getElementById('sessStatus'),
+            blockVal: document.getElementById('blockVal'),
+            blockStatus: document.getElementById('blockStatus'),
+            availVal: document.getElementById('availVal'),
+            availStatus: document.getElementById('availStatus'),
+            healthScoreProgress: document.getElementById('healthScoreProgress'),
+            healthScoreValue: document.getElementById('healthScoreValue'),
+            healthScoreStatus: document.getElementById('healthScoreStatus'),
+            
+            // Recommendations tab stats
+            recCriticalCount: document.getElementById('recCriticalCount'),
+            recHighCount: document.getElementById('recHighCount'),
+            recMediumCount: document.getElementById('recMediumCount'),
+            recLowCount: document.getElementById('recLowCount'),
+            recommendationsList: document.getElementById('recommendationsList'),
+            recommendationsContainer: document.getElementById('recommendationsContainer'),
+            
+            // Summary Pane
+            aiSummaryArea: document.getElementById('aiSummaryArea'),
+            aiSummaryExportBtn: document.getElementById('aiSummaryExportBtn'),
+            summaryContentPanel: document.getElementById('summaryContentPanel'),
+            summaryArrow: document.getElementById('summaryArrow'),
+            
+            // Tabs & Additional containers
+            tabPdfBtn: document.getElementById('tabPdfBtn'),
+            tabRecommendBtn: document.getElementById('tabRecommendBtn'),
+            tabMindMapBtn: document.getElementById('tabMindMapBtn'),
+            tabPresentationBtn: document.getElementById('tabPresentationBtn'),
+            expertSelector: document.getElementById('expertSelector'),
+            suggestedQuestionsSection: document.getElementById('suggestedQuestionsSection'),
+            suggestedQuestionsList: document.getElementById('suggestedQuestionsList'),
+            
+            // Comparer
+            compareBtn: document.getElementById('compareBtn'),
+            selectedCount: document.getElementById('selectedCount'),
+
+            // Mindmap Canvas Components
+            mindmapContainer: document.getElementById('mindmapContainer'),
+            mindmapCanvas: document.getElementById('mindmapCanvas'),
+            nodeDetailDrawer: document.getElementById('nodeDetailDrawer'),
+            nodeDrawerTitle: document.getElementById('nodeDrawerTitle'),
+            nodeDrawerSummary: document.getElementById('nodeDrawerSummary'),
+            nodeDrawerDetails: document.getElementById('nodeDrawerDetails'),
+            nodeDrawerConfidence: document.getElementById('nodeDrawerConfidence'),
+            nodeBadge: document.getElementById('nodeBadge'),
+
+            // Presentation Components
+            presentationContainer: document.getElementById('presentationContainer'),
+            slideCurrent: document.getElementById('slideCurrent'),
+            slideTitle: document.getElementById('slideTitle'),
+            slideBody: document.getElementById('slideBody'),
+            slideHeaderTopic: document.getElementById('slideHeaderTopic'),
+            slideHeaderPage: document.getElementById('slideHeaderPage'),
+            slideFooterReportName: document.getElementById('slideFooterReportName'),
+            slideFooterDate: document.getElementById('slideFooterDate')
+        };
+
+        // --- Dark Mode Controller ---
+        function toggleDarkMode() {
+            const html = document.documentElement;
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+                updateThemeIcons(false);
+            } else {
+                html.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+                updateThemeIcons(true);
+            }
+            // Trigger redrawing map canvas to adapt layout colors
+            if (activeViewerTab === 'mindmap') renderMap();
+        }
+        
+        function updateThemeIcons(isDark) {
+            const sun = document.getElementById('sunIcon');
+            const moon = document.getElementById('moonIcon');
+            if (isDark) {
+                sun.classList.remove('hidden');
+                moon.classList.add('hidden');
+            } else {
+                sun.classList.add('hidden');
+                moon.classList.remove('hidden');
+            }
+        }
+
+        // Initialize theme based on preference
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            updateThemeIcons(true);
+        } else {
+            document.documentElement.classList.remove('dark');
+            updateThemeIcons(false);
+        }
+
+        // --- Toast Notifications ---
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastIcon = document.getElementById('toastIcon');
+            const toastMsg = document.getElementById('toastMessage');
+            
+            const icons = {
+                info: 'ℹ️',
+                success: '✅',
+                warning: '⚠️',
+                error: '❌'
+            };
+            
+            toastIcon.textContent = icons[type] || 'ℹ️';
+            toastMsg.textContent = message;
+            
+            toast.classList.remove('translate-y-12', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-12', 'opacity-0');
+                toast.classList.remove('translate-y-0', 'opacity-100');
+            }, 3500);
+        }
+
+        // --- API Key Detector ---
+        ui.apiKeyInput.addEventListener('input', () => {
+            if (ui.apiKeyInput.value.trim().length > 5) {
+                ui.apiIndicator.classList.remove('bg-red-500');
+                ui.apiIndicator.classList.add('bg-green-500', 'shadow-[0_0_8px_rgba(34,197,94,0.6)]');
+                ui.apiIndicator.title = "Gemini Key Detected";
+            } else {
+                ui.apiIndicator.classList.add('bg-red-500');
+                ui.apiIndicator.classList.remove('bg-green-500', 'shadow-[0_0_8px_rgba(34,197,94,0.6)]');
+                ui.apiIndicator.title = "Gemini Key Required";
+            }
+        });
+
+        // --- Suggested Questions Renderer ---
+        function renderSuggestedQuestions() {
+            ui.suggestedQuestionsList.innerHTML = '';
+            baseQuestions.forEach(q => {
+                const btn = document.createElement('button');
+                btn.className = "text-left text-xs bg-white dark:bg-zinc-800 hover:bg-red-50 dark:hover:bg-zinc-700/50 p-2 rounded border border-gray-200 dark:border-zinc-800 transition-all font-sans text-gray-700 dark:text-gray-300 truncate";
+                btn.textContent = q;
+                btn.onclick = () => {
+                    ui.chatInput.value = q;
+                    sendMessage();
+                };
+                ui.suggestedQuestionsList.appendChild(btn);
+            });
+            ui.suggestedQuestionsSection.classList.remove('hidden');
+        }
+
+        // --- File Uploader and Text Extractor ---
+        async function handleFiles(event) {
+            const files = Array.from(event.target.files);
+            if (!files.length) return;
+
+            ui.viewerLoading.classList.remove('hidden');
+            ui.errorBanner.classList.add('hidden');
+
+            for (const file of files) {
+                if (file.type !== 'application/pdf') continue;
+                if (documents.some(d => d.name === file.name)) continue;
+
+                const docId = 'doc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+                ui.loadingText.textContent = `Analyzing ${file.name}...`;
+                
+                try {
+                    const textContent = await extractTextFromPDF(file);
+                    const objectUrl = URL.createObjectURL(file);
+                    const parsedMetrics = heuristicsExtractMetrics(textContent);
+                    
+                    const docObj = {
+                        id: docId,
+                        name: file.name,
+                        file: file,
+                        objectUrl: objectUrl,
+                        textContent: textContent,
+                        metrics: parsedMetrics,
+                        checked: false,
+                        summary: null,
+                        recommendations: null,
+                        mindMapData: null,
+                        presentationData: null
+                    };
+                    
+                    documents.push(docObj);
+                    
+                    // Run AI extraction
+                    await analyzeDocumentInBackground(docObj);
+                    
+                } catch (error) {
+                    console.error("Error processing PDF:", error);
+                    showToast(`Failed to parse ${file.name}. Ensure it's not encrypted.`, 'error');
+                }
+            }
+
+            ui.viewerLoading.classList.add('hidden');
+            ui.fileInput.value = ''; // Reset uploader input
+            renderDocumentList();
+            renderSuggestedQuestions();
+            updateCompareButtonState();
+
+            if (!activeDocId && documents.length > 0) {
+                selectDocument(documents[0].id);
+            }
+        }
+
+        async function extractTextFromPDF(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const maxPages = Math.min(pdf.numPages, 30); // Prevent overflow, limit page reads
+            const textParts = [];
+
+            for (let i = 1; i <= maxPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                textParts.push(`[Page ${i}]\n${pageText}`);
+            }
+            return textParts.join('\n\n');
+        }
+
+        // Regex heuristic parsing to capture DB stats instantly offline
+        function heuristicsExtractMetrics(text) {
+            const cleanText = text.toLowerCase();
+            
+            // Default baseline values
+            let metrics = {
+                cpu: 15,
+                memory: 35,
+                tablespace: 45,
+                sessions: 12,
+                blocking: 0,
+                availability: 100,
+                healthScore: 90
+            };
+
+            // RegEx tests for database diagnostics
+            const cpuMatch = cleanText.match(/(?:cpu utilization|cpu usage|host cpu)\s*[:=]?\s*(\d+(\.\d+)?)\s*%/i);
+            if (cpuMatch) metrics.cpu = Math.min(100, Math.round(parseFloat(cpuMatch[1])));
+            
+            const memMatch = cleanText.match(/(?:memory utilization|memory usage|sga allocation)\s*[:=]?\s*(\d+(\.\d+)?)\s*%/i);
+            if (memMatch) metrics.memory = Math.min(100, Math.round(parseFloat(memMatch[1])));
+
+            const tableMatch = cleanText.match(/(?:tablespace usage|tablespace full|allocated space)\s*[:=]?\s*(\d+(\.\d+)?)\s*%/i);
+            if (tableMatch) metrics.tablespace = Math.min(100, Math.round(parseFloat(tableMatch[1])));
+
+            const activeSessMatch = cleanText.match(/(?:active sessions|average active sessions|sessions)\s*[:=]?\s*(\d+)/i);
+            if (activeSessMatch) metrics.sessions = Math.min(1000, parseInt(activeSessMatch[1]));
+
+            const blockSessMatch = cleanText.match(/(?:blocking sessions|blocked sessions|lock tree blocking)\s*[:=]?\s*(\d+)/i);
+            if (blockSessMatch) metrics.blocking = Math.min(100, parseInt(blockSessMatch[1]));
+
+            const availMatch = cleanText.match(/(?:availability|uptime)\s*[:=]?\s*(\d+(\.\d+)?)\s*%/i);
+            if (availMatch) metrics.availability = Math.min(100, Math.round(parseFloat(availMatch[1])));
+
+            // Calculate heuristic score
+            let penalty = 0;
+            if (metrics.cpu > 75) penalty += 15;
+            if (metrics.memory > 85) penalty += 10;
+            if (metrics.tablespace > 85) penalty += 20;
+            if (metrics.blocking > 2) penalty += (metrics.blocking * 5);
+            if (metrics.availability < 99) penalty += 30;
+
+            metrics.healthScore = Math.max(5, 100 - penalty);
+            return metrics;
+        }
+
+        // Background analyzer using Gemini 2.5 Flash to construct professional report insights
+        async function analyzeDocumentInBackground(docObj) {
+            const currentKey = ui.apiKeyInput.value.trim() || apiKey;
+            if (!currentKey) {
+                // Rely on heuristics metrics in offline mode
+                docObj.summary = `#### Auto-Generated (Local Offline Parsing)\nNo Gemini API Key was configured during upload. To generate complete DBA summaries, action plans, and precise health metrics, enter your key in the header.\n\n* **Report Title:** ${docObj.name}\n* **Extracted Text Length:** ${docObj.textContent.length} characters.`;
+                docObj.recommendations = [
+                    { priority: 'critical', issue: 'Missing API Key analysis', impact: 'Incomplete metric verification', action: 'Input your Gemini API key in the upper-right corner and regenerate.' }
+                ];
+                updateAISummaryView(docObj);
+                renderRecommendations(docObj);
+                showToast("Document parsed offline. Add your API key for complete diagnostic insights.", "warning");
+                return;
+            }
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${currentKey}`;
+                
+                const prompt = `Perform a database administration audit on this extracted report: "${docObj.name}".
+Evaluate performance metrics and return a JSON containing the exact metrics, an executive summary, and categorized priority recommendations.
+
+EXTRACTED TEXT:
+${docObj.textContent.substring(0, 50000)}
+
+Your response must be structured strictly as a valid JSON object matching the following layout:
+{
+  "metrics": {
+    "cpu": integer between 0 and 100,
+    "memory": integer between 0 and 100,
+    "tablespace": integer between 0 and 100,
+    "sessions": integer,
+    "blocking": integer,
+    "availability": integer between 0 and 100,
+    "healthScore": integer between 0 and 100
+  },
+  "summary": "markdown string summarizing Executive Summary, Key Findings, Critical Issues, and overall status",
+  "recommendations": [
+    {
+      "priority": "critical" or "high" or "medium" or "low",
+      "issue": "Specific DB issue discovered",
+      "impact": "Expected impact on performance, data integrity, or availability",
+      "action": "Corrective suggested action"
+    }
+  ]
+}`;
+
+                const payload = {
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                metrics: {
+                                    type: "OBJECT",
+                                    properties: {
+                                        cpu: { type: "INTEGER" },
+                                        memory: { type: "INTEGER" },
+                                        tablespace: { type: "INTEGER" },
+                                        sessions: { type: "INTEGER" },
+                                        blocking: { type: "INTEGER" },
+                                        availability: { type: "INTEGER" },
+                                        healthScore: { type: "INTEGER" }
+                                    },
+                                    required: ["cpu", "memory", "tablespace", "sessions", "blocking", "availability", "healthScore"]
+                                },
+                                summary: { type: "STRING" },
+                                recommendations: {
+                                    type: "ARRAY",
+                                    items: {
+                                        type: "OBJECT",
+                                        properties: {
+                                            priority: { type: "STRING" },
+                                            issue: { type: "STRING" },
+                                            impact: { type: "STRING" },
+                                            action: { type: "STRING" }
+                                        },
+                                        required: ["priority", "issue", "impact", "action"]
+                                    }
+                                }
+                            },
+                            required: ["metrics", "summary", "recommendations"]
+                        }
+                    },
+                    contents: [{ parts: [{ text: prompt }] }]
+                };
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error("Failed to parse via API.");
+                
+                const data = await response.json();
+                const jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                const parsedResult = JSON.parse(jsonText);
+
+                // Update document object with Gemini-sourced insights
+                docObj.metrics = parsedResult.metrics;
+                docObj.summary = parsedResult.summary;
+                docObj.recommendations = parsedResult.recommendations;
+
+                showToast(`Gemini successfully audited ${docObj.name}!`, "success");
+
+                // If this is currently active, update UI dashboards live
+                if (activeDocId === docObj.id) {
+                    updateDashboard(docObj.metrics);
+                    updateAISummaryView(docObj);
+                    renderRecommendations(docObj);
+                }
+            } catch (err) {
+                console.error("Gemini Audit Error:", err);
+                showToast(`Audit failed for ${docObj.name}. Relying on local heuristics engine.`, "warning");
+                
+                docObj.summary = `#### Auto-Generated Executive Summary\nExtracted details from local parser. Gemini API Key audit returned an error.\n\n* **Report Title:** ${docObj.name}\n* **Active Sessions:** ${docObj.metrics.sessions}\n* **Tablespace Full Ratio:** ${docObj.metrics.tablespace}%\n* **CPU Capacity Estimate:** ${docObj.metrics.cpu}%`;
+                docObj.recommendations = [
+                    { priority: 'critical', issue: 'API Audit Handshake Timeout', impact: 'No AI summary generated', action: 'Verify key status, network availability, and re-run analysis.' }
+                ];
+
+                if (activeDocId === docObj.id) {
+                    updateAISummaryView(docObj);
+                    renderRecommendations(docObj);
+                }
+            }
+        }
+
+        // --- Document Selection & UI Updates ---
+        function renderDocumentList() {
+            if (documents.length === 0) {
+                ui.docList.innerHTML = `<div class="text-center text-gray-400 text-xs italic mt-8 px-4">No database reports loaded yet.<br>Provide Oracle AWR, ASH, Statspack, or custom reports.</div>`;
+                return;
+            }
+
+            ui.docList.innerHTML = '';
+            documents.forEach(doc => {
+                const isActive = doc.id === activeDocId;
+                const el = document.createElement('div');
+                el.className = `p-3 mb-2 rounded border transition-all flex items-start gap-2 text-xs relative ${isActive ? 'bg-red-50 dark:bg-zinc-850 border-arxiv-red text-arxiv-red dark:text-red-400 font-semibold shadow-sm' : 'bg-white dark:bg-zinc-900/60 border-gray-200 dark:border-zinc-800 text-gray-700 dark:text-gray-300 hover:border-red-300 hover:bg-gray-50'}`;
+                el.onclick = () => selectDocument(doc.id);
+                
+                el.innerHTML = `
+                    <div class="flex items-center self-stretch pr-1">
+                        <input type="checkbox" ${doc.checked ? 'checked' : ''} onclick="toggleDocCheck('${doc.id}', event)" class="w-3.5 h-3.5 accent-red-600 rounded cursor-pointer">
+                    </div>
+                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                    <div class="truncate flex-1" title="${doc.name}">${doc.name}</div>
+                    <button onclick="removeDocument('${doc.id}', event)" class="text-gray-400 hover:text-red-600 focus:outline-none p-0.5 rounded hover:bg-red-100 dark:hover:bg-zinc-800 transition-colors" title="Delete">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+                    </button>
+                `;
+                ui.docList.appendChild(el);
+            });
+        }
+
+        function toggleDocCheck(id, event) {
+            event.stopPropagation();
+            const doc = documents.find(d => d.id === id);
+            if (doc) {
+                doc.checked = !doc.checked;
+                updateCompareButtonState();
+                renderDocumentList();
+            }
+        }
+
+        function updateCompareButtonState() {
+            const checkedCount = documents.filter(d => d.checked).length;
+            ui.selectedCount.textContent = checkedCount;
+            ui.compareBtn.disabled = checkedCount < 2;
+        }
+
+        async function selectDocument(id) {
+            activeDocId = id;
+            renderDocumentList();
+            
+            const doc = documents.find(d => d.id === id);
+            if (!doc) {
+                ui.emptyViewer.classList.remove('hidden');
+                ui.pdfViewerContainer.classList.add('hidden');
+                ui.dbDashboard.classList.add('hidden');
+                ui.viewerDocName.textContent = '';
+                return;
+            }
+
+            ui.emptyViewer.classList.add('hidden');
+            ui.dbDashboard.classList.remove('hidden');
+            ui.viewerDocName.textContent = doc.name;
+
+            // Trigger visual metric dials & dashboards
+            updateDashboard(doc.metrics);
+            updateAISummaryView(doc);
+            renderRecommendations(doc);
+
+            // Re-render based on active tab
+            switchViewerTab(activeViewerTab);
+        }
+
+        function removeDocument(id, event) {
+            event.stopPropagation();
+            const docIndex = documents.findIndex(d => d.id === id);
+            if (docIndex > -1) {
+                URL.revokeObjectURL(documents[docIndex].objectUrl);
+                documents.splice(docIndex, 1);
+                
+                if (activeDocId === id) {
+                    activeDocId = documents.length > 0 ? documents[0].id : null;
+                    selectDocument(activeDocId);
+                } else {
+                    renderDocumentList();
+                }
+                updateCompareButtonState();
+            }
+        }
+
+        // --- Dashboard Values and Progress Renders ---
+        function updateDashboard(m) {
+            if (!m) return;
+
+            ui.cpuVal.textContent = `${m.cpu}%`;
+            setMetricStatus(ui.cpuStatus, m.cpu, 75, 90);
+
+            ui.memVal.textContent = `${m.memory}%`;
+            setMetricStatus(ui.memStatus, m.memory, 80, 92);
+
+            ui.tblVal.textContent = `${m.tablespace}%`;
+            setMetricStatus(ui.tblStatus, m.tablespace, 85, 95);
+
+            ui.sessVal.textContent = m.sessions;
+            setMetricStatus(ui.sessStatus, m.sessions, 150, 400);
+
+            ui.blockVal.textContent = m.blocking;
+            setMetricStatus(ui.blockStatus, m.blocking, 1, 3, true); 
+
+            ui.availVal.textContent = `${m.availability}%`;
+            setMetricStatus(ui.availStatus, m.availability, 99.9, 99.0, false, true); 
+
+            // Render Circle Progress
+            const val = m.healthScore || 90;
+            ui.healthScoreValue.textContent = val;
+            
+            const offset = 125.6 - (125.6 * val) / 100;
+            ui.healthScoreProgress.style.strokeDashoffset = offset;
+
+            if (val >= 85) {
+                ui.healthScoreStatus.textContent = "Excellent";
+                ui.healthScoreStatus.className = "text-[10px] uppercase tracking-wider font-bold text-emerald-500";
+                ui.healthScoreProgress.className = "stroke-emerald-500 fill-none transition-all duration-1000";
+            } else if (val >= 70) {
+                ui.healthScoreStatus.textContent = "Fair Warning";
+                ui.healthScoreStatus.className = "text-[10px] uppercase tracking-wider font-bold text-amber-500";
+                ui.healthScoreProgress.className = "stroke-amber-500 fill-none transition-all duration-1000";
+            } else {
+                ui.healthScoreStatus.textContent = "Critical Danger";
+                ui.healthScoreStatus.className = "text-[10px] uppercase tracking-wider font-bold text-red-500 animate-pulse";
+                ui.healthScoreProgress.className = "stroke-red-500 fill-none transition-all duration-1000";
+            }
+        }
+
+        function setMetricStatus(element, val, warnLimit, critLimit, isCounter = false, isInverted = false) {
+            element.className = "w-2.5 h-2.5 rounded-full transition-colors duration-300 ";
+            
+            if (isInverted) {
+                if (val >= warnLimit) {
+                    element.classList.add("bg-emerald-500");
+                } else if (val >= critLimit) {
+                    element.classList.add("bg-amber-500");
+                } else {
+                    element.classList.add("bg-red-500");
+                }
+                return;
+            }
+
+            if (!isCounter) {
+                if (val < warnLimit) {
+                    element.classList.add("bg-emerald-500");
+                } else if (val < critLimit) {
+                    element.classList.add("bg-amber-500");
+                } else {
+                    element.classList.add("bg-red-500");
+                }
+            } else {
+                if (val === 0) {
+                    element.classList.add("bg-emerald-500");
+                } else if (val < critLimit) {
+                    element.classList.add("bg-amber-500");
+                } else {
+                    element.classList.add("bg-red-500");
+                }
+            }
+        }
+
+        // --- View Tabs Switcher (Expanded with mindmap and presentation support) ---
+        async function switchViewerTab(tab) {
+            activeViewerTab = tab;
+            
+            // Standard reset
+            ui.tabPdfBtn.className = "px-3 py-1 text-xs font-semibold rounded hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-600 dark:text-gray-400";
+            ui.tabRecommendBtn.className = "px-3 py-1 text-xs font-semibold rounded hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-600 dark:text-gray-400";
+            ui.tabMindMapBtn.className = "px-3 py-1 text-xs font-semibold rounded hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-600 dark:text-gray-400 flex items-center gap-1";
+            ui.tabPresentationBtn.className = "px-3 py-1 text-xs font-semibold rounded hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-600 dark:text-gray-400 flex items-center gap-1";
+            
+            ui.pdfViewerContainer.classList.add('hidden');
+            ui.recommendationsContainer.classList.add('hidden');
+            ui.mindmapContainer.classList.add('hidden');
+            ui.presentationContainer.classList.add('hidden');
+
+            const doc = documents.find(d => d.id === activeDocId);
+            if (!doc) return;
+
+            if (tab === 'pdf') {
+                ui.tabPdfBtn.className = "px-3 py-1 text-xs font-semibold rounded bg-white dark:bg-zinc-800 text-gray-850 dark:text-white shadow-sm border border-gray-200 dark:border-gray-700";
+                ui.pdfViewerContainer.classList.remove('hidden');
+                
+                // Trigger actual PDF parsing & rendering only if canvas list empty
+                if (ui.pdfViewerContainer.innerHTML === '') {
+                    renderPdfPages(doc);
+                }
+            } else if (tab === 'recommendations') {
+                ui.tabRecommendBtn.className = "px-3 py-1 text-xs font-semibold rounded bg-white dark:bg-zinc-800 text-gray-855 dark:text-white shadow-sm border border-gray-200 dark:border-gray-700";
+                ui.recommendationsContainer.classList.remove('hidden');
+            } else if (tab === 'mindmap') {
+                ui.tabMindMapBtn.className = "px-3 py-1 text-xs font-semibold rounded bg-white dark:bg-zinc-800 text-gray-850 dark:text-white shadow-sm border border-gray-200 dark:border-gray-700 flex items-center gap-1";
+                ui.mindmapContainer.classList.remove('hidden');
+                
+                // Load or generate mind map
+                initMindMapCanvas();
+                if (!doc.mindMapData) {
+                    await generateMindMapFromAI();
+                } else {
+                    loadMindMapData(doc.mindMapData);
+                }
+            } else if (tab === 'presentation') {
+                ui.tabPresentationBtn.className = "px-3 py-1 text-xs font-semibold rounded bg-white dark:bg-zinc-800 text-gray-850 dark:text-white shadow-sm border border-gray-200 dark:border-gray-700 flex items-center gap-1";
+                ui.presentationContainer.classList.remove('hidden');
+                
+                // Load or generate slides
+                if (!doc.presentationData) {
+                    await generateAIPresentation();
+                } else {
+                    loadPresentationData(doc.presentationData);
+                }
+            }
+        }
+
+        async function renderPdfPages(doc) {
+            ui.pdfViewerContainer.innerHTML = '';
+            ui.viewerLoading.classList.remove('hidden');
+            ui.loadingText.textContent = `Rendering PDF Pages...`;
+
+            try {
+                const arrayBuffer = await doc.file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                ui.viewerLoading.classList.add('hidden');
+
+                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                    const page = await pdf.getPage(pageNum);
+                    const containerWidth = ui.pdfViewerContainer.clientWidth - 48;
+                    let viewport = page.getViewport({ scale: 1.0 });
+                    const scale = Math.min(1.4, containerWidth / viewport.width);
+                    viewport = page.getViewport({ scale: scale });
+
+                    const canvasWrapper = document.createElement('div');
+                    canvasWrapper.className = 'mb-6 shadow-md bg-white border border-gray-300 dark:border-zinc-800';
+
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    canvas.className = 'block';
+
+                    canvasWrapper.appendChild(canvas);
+                    ui.pdfViewerContainer.appendChild(canvasWrapper);
+
+                    const renderContext = {
+                        canvasContext: ctx,
+                        viewport: viewport
+                    };
+                    await page.render(renderContext).promise;
+                }
+            } catch (error) {
+                console.error("PDF Render Timeout/Error:", error);
+                ui.viewerLoading.classList.add('hidden');
+                ui.pdfViewerContainer.innerHTML = `<div class="text-red-500 p-4 bg-white dark:bg-zinc-900 border rounded shadow-sm">PDF visual renderer blocked or unavailable. Extract text-only analytics successful.</div>`;
+            }
+        }
+
+        // --- Collapsible Summary Panel Logic ---
+        function toggleSummaryPanel() {
+            const isClosed = !ui.summaryContentPanel.classList.contains('open');
+            if (isClosed) {
+                ui.summaryContentPanel.classList.add('open');
+                ui.summaryArrow.style.transform = 'rotate(180deg)';
+            } else {
+                ui.summaryContentPanel.classList.remove('open');
+                ui.summaryArrow.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        function updateAISummaryView(docObj) {
+            if (!docObj.summary) {
+                ui.aiSummaryArea.innerHTML = `<p class="italic text-gray-400">Analysis queued for this file. Please wait...</p>`;
+                ui.aiSummaryExportBtn.classList.add('hidden');
+                return;
+            }
+            ui.aiSummaryArea.innerHTML = marked.parse(docObj.summary);
+            ui.aiSummaryExportBtn.classList.remove('hidden');
+            
+            ui.summaryContentPanel.classList.add('open');
+            ui.summaryArrow.style.transform = 'rotate(180deg)';
+        }
+
+        // --- DBA Recommendations Render ---
+        function renderRecommendations(docObj) {
+            ui.recommendationsList.innerHTML = '';
+            const recs = docObj.recommendations || [];
+            let counts = { critical: 0, high: 0, medium: 0, low: 0 };
+            
+            if (recs.length === 0) {
+                ui.recommendationsList.innerHTML = `<div class="text-center text-gray-500 py-12 italic">No structured recommendations recorded yet. Provide an active report audit profile.</div>`;
+                return;
+            }
+
+            recs.forEach(rec => {
+                const priority = (rec.priority || 'medium').toLowerCase();
+                if (counts[priority] !== undefined) counts[priority]++;
+
+                let colorStyles = "";
+                let badge = "";
+
+                switch(priority) {
+                    case 'critical':
+                        colorStyles = "border-l-4 border-l-red-500 bg-red-50/40 dark:bg-red-950/5";
+                        badge = `<span class="bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 text-[10px] uppercase font-bold px-2 py-0.5 rounded">🚨 CRITICAL</span>`;
+                        break;
+                    case 'high':
+                        colorStyles = "border-l-4 border-l-amber-500 bg-amber-50/40 dark:bg-amber-950/5";
+                        badge = `<span class="bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 text-[10px] uppercase font-bold px-2 py-0.5 rounded">⚠️ HIGH</span>`;
+                        break;
+                    case 'medium':
+                        colorStyles = "border-l-4 border-l-blue-500 bg-blue-50/40 dark:bg-blue-950/5";
+                        badge = `<span class="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 text-[10px] uppercase font-bold px-2 py-0.5 rounded">📊 MEDIUM</span>`;
+                        break;
+                    default:
+                        colorStyles = "border-l-4 border-l-green-500 bg-green-50/40 dark:bg-green-950/5";
+                        badge = `<span class="bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 text-[10px] uppercase font-bold px-2 py-0.5 rounded">✔ LOW</span>`;
+                }
+
+                const recEl = document.createElement('div');
+                recEl.className = `${colorStyles} p-4 rounded border border-gray-200 dark:border-zinc-800 shadow-sm flex flex-col gap-2`;
+                recEl.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <h4 class="font-bold text-gray-800 dark:text-white text-sm">${rec.issue}</h4>
+                        ${badge}
+                    </div>
+                    <div class="text-xs text-gray-600 dark:text-gray-300">
+                        <span class="font-semibold text-gray-800 dark:text-gray-200">Impact Analysis:</span> ${rec.impact}
+                    </div>
+                    <div class="text-xs bg-white dark:bg-zinc-950 p-2.5 rounded border border-gray-150 dark:border-zinc-850 text-gray-700 dark:text-gray-300 mt-1">
+                        <span class="font-bold text-arxiv-red">Recommended DBA Action:</span> ${rec.action}
+                    </div>
+                `;
+                ui.recommendationsList.appendChild(recEl);
+            });
+
+            ui.recCriticalCount.textContent = counts.critical;
+            ui.recHighCount.textContent = counts.high;
+            ui.recMediumCount.textContent = counts.medium;
+            ui.recLowCount.textContent = counts.low;
+        }
+
+        // --- INTERACTIVE MIND MAP ENGINE ---
+        function initMindMapCanvas() {
+            const canvas = ui.mindmapCanvas;
+            const container = document.getElementById('mapCanvasContainer');
+            
+            // Adjust canvas to match display size
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            
+            // Re-bind mouse listener bindings
+            canvas.removeEventListener('mousedown', onMapMouseDown);
+            canvas.removeEventListener('mousemove', onMapMouseMove);
+            canvas.removeEventListener('mouseup', onMapMouseUp);
+            canvas.removeEventListener('wheel', onMapWheel);
+            canvas.removeEventListener('dblclick', onMapDblClick);
+            
+            canvas.addEventListener('mousedown', onMapMouseDown);
+            canvas.addEventListener('mousemove', onMapMouseMove);
+            canvas.addEventListener('mouseup', onMapMouseUp);
+            canvas.addEventListener('wheel', onMapWheel);
+            canvas.addEventListener('dblclick', onMapDblClick);
+
+            // Redraw loop wrapper
+            window.addEventListener('resize', () => {
+                if (activeViewerTab === 'mindmap' && documents.length > 0) {
+                    canvas.width = container.clientWidth;
+                    canvas.height = container.clientHeight;
+                    renderMap();
+                }
+            });
+        }
+
+        async function generateMindMapFromAI() {
+            const doc = documents.find(d => d.id === activeDocId);
+            if (!doc) return;
+
+            const mapGenSpinner = document.getElementById('mapGenSpinner');
+            mapGenSpinner.classList.remove('hidden');
+            showToast("Generating Interactive Mind Map structure...", "info");
+
+            const currentKey = ui.apiKeyInput.value.trim() || apiKey;
+            if (!currentKey) {
+                // FALLBACK OFFLINE MIND MAP SYNTHESIS ENGINE
+                doc.mindMapData = generateOfflineMindMap(doc);
+                loadMindMapData(doc.mindMapData);
+                mapGenSpinner.classList.add('hidden');
+                showToast("Synthesized local diagnostic Mind Map offline.", "success");
+                return;
+            }
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${currentKey}`;
+                const prompt = `Synthesize an interactive hierarchical Mind Map / Knowledge Graph structure for the database diagnostics report: "${doc.name}".
+Evaluate this context text and return JSON configuration strictly matching the schema:
+
+EXTRACTED TEXT:
+${doc.textContent.substring(0, 25000)}
+
+SCHEMA REQUIREMENT:
+Return a JSON object containing two root arrays: "nodes" and "edges".
+Nodes must include:
+  - id: unique string, e.g. "root", "cpu", "mem", "rec1", etc.
+  - label: string of node title (keep it under 4 words)
+  - summary: string of a one-line summary
+  - details: string of detailed explanation and metrics
+  - type: string ('root' | 'metric' | 'issue' | 'recommendation' | 'general')
+  - color: string ('blue' | 'yellow' | 'red' | 'green') -> Blue=Info, Yellow=Warning, Red=Critical, Green=Healthy
+  - parentId: string of parent node ID if applicable (must form a tree starting at "root")
+Edges must include:
+  - source: string of source node ID
+  - target: string of target node ID
+  - label: (Optional) string of relationship type (e.g., "triggers", "leaks", "resolves")
+  - confidence: (Optional) integer confidence level between 50 and 100 for AI discovery links
+
+Avoid any JSON markup wrapper other than raw JSON response. Ensure it has at least 8 distinct nodes, branching gracefully out of the "root" node representing the database report.`;
+
+                const payload = {
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                nodes: {
+                                    type: "ARRAY",
+                                    items: {
+                                        type: "OBJECT",
+                                        properties: {
+                                            id: { type: "STRING" },
+                                            label: { type: "STRING" },
+                                            summary: { type: "STRING" },
+                                            details: { type: "STRING" },
+                                            type: { type: "STRING" },
+                                            color: { type: "STRING" },
+                                            parentId: { type: "STRING" }
+                                        },
+                                        required: ["id", "label", "summary", "details", "type", "color"]
+                                    }
+                                },
+                                edges: {
+                                    type: "ARRAY",
+                                    items: {
+                                        type: "OBJECT",
+                                        properties: {
+                                            source: { type: "STRING" },
+                                            target: { type: "STRING" },
+                                            label: { type: "STRING" },
+                                            confidence: { type: "INTEGER" }
+                                        },
+                                        required: ["source", "target"]
+                                    }
+                                }
+                            },
+                            required: ["nodes", "edges"]
+                        }
+                    },
+                    contents: [{ parts: [{ text: prompt }] }]
+                };
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error("API failure");
+                const data = await response.json();
+                const jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                doc.mindMapData = JSON.parse(jsonText);
+                loadMindMapData(doc.mindMapData);
+                showToast("Interactive Mind Map generated successfully!", "success");
+            } catch (err) {
+                console.error("Mind Map AI generation failed:", err);
+                showToast("Generating offline fallback layout...", "warning");
+                doc.mindMapData = generateOfflineMindMap(doc);
+                loadMindMapData(doc.mindMapData);
+            } finally {
+                mapGenSpinner.classList.add('hidden');
+            }
+        }
+
+        function generateOfflineMindMap(doc) {
+            const m = doc.metrics;
+            // Compile heuristic structured map
+            const nodes = [
+                { id: "root", label: doc.name, summary: "Main database report diagnostic core node.", details: "Analyzed metrics extracted from active logs.", type: "root", color: "blue" },
+                
+                { id: "metrics", label: "Performance Metrics", summary: "Summary of CPU, Memory and I/O wait stats.", details: "Calculated database load coefficients.", type: "general", color: "blue", parentId: "root" },
+                { id: "cpu_node", label: `CPU Capacity (${m.cpu}%)`, summary: m.cpu > 75 ? "High CPU bottleneck alert." : "CPU utilization is healthy.", details: `Total CPU load clocked at ${m.cpu}%. Limit alerts configured at 85%.`, type: "metric", color: m.cpu > 75 ? "red" : "green", parentId: "metrics" },
+                { id: "mem_node", label: `SGA Memory (${m.memory}%)`, summary: m.memory > 80 ? "SGA sizing pressure observed." : "SGA allocations optimized.", details: `Shared pool RAM usage clocked at ${m.memory}%.`, type: "metric", color: m.memory > 80 ? "yellow" : "green", parentId: "metrics" },
+                
+                { id: "storage", label: "Storage & Tablespaces", summary: "File layout metrics.", details: "Examines tablespace alerts.", type: "general", color: "blue", parentId: "root" },
+                { id: "tbl_node", label: `Tablespace usage (${m.tablespace}%)`, summary: m.tablespace > 85 ? "Critical tablespace fill alerts." : "Sufficient storage headroom.", details: `Current space allocation is at ${m.tablespace}% capacity limits.`, type: "metric", color: m.tablespace > 85 ? "red" : "green", parentId: "storage" },
+
+                { id: "concurrency", label: "Sessions & Latency", summary: "Connection spikes and wait locks.", details: "Tracks active and blocking sessions.", type: "general", color: "blue", parentId: "root" },
+                { id: "sess_node", label: `${m.sessions} Active Sessions`, summary: "User session baseline metrics.", details: `Active sessions counted at ${m.sessions}. No current connection pool leaks.`, type: "metric", color: "green", parentId: "concurrency" }
+            ];
+
+            const edges = [
+                { source: "root", target: "metrics" },
+                { source: "metrics", target: "cpu_node" },
+                { source: "metrics", target: "mem_node" },
+                { source: "root", target: "storage" },
+                { source: "storage", target: "tbl_node" },
+                { source: "root", target: "concurrency" },
+                { source: "concurrency", target: "sess_node" }
+            ];
+
+            // Add blocking node if relevant
+            if (m.blocking > 0) {
+                nodes.push({ id: "block_node", label: `${m.blocking} Blocking Locks`, summary: "Locking conflicts detected.", details: `${m.blocking} active transactions are holding locking resources causing application delays.`, type: "issue", color: "red", parentId: "concurrency" });
+                edges.push({ source: "concurrency", target: "block_node" });
+                edges.push({ source: "cpu_node", target: "block_node", label: "Exacerbates load", confidence: 88 }); // cross edge
+            }
+
+            return { nodes, edges };
+        }
+
+        function loadMindMapData(data) {
+            if (!data || !data.nodes) return;
+            
+            // Build mutable local nodes list with coordinate spaces
+            mapNodes = data.nodes.map((n, i) => {
+                return {
+                    ...n,
+                    x: 0,
+                    y: 0,
+                    radius: n.type === 'root' ? 45 : 35,
+                    collapsed: false,
+                    visible: true
+                };
+            });
+
+            mapEdges = data.edges || [];
+            
+            // Position nodes programmatically (initial coordinates)
+            calculateTreePositions();
+            mapRecenter();
+        }
+
+        // Layout positioning calculation (Standard concentric ring radial tree)
+        function calculateTreePositions() {
+            const root = mapNodes.find(n => n.id === 'root' || !n.parentId);
+            if (!root) return;
+
+            // Simple concentric tree layout
+            const canvas = ui.mindmapCanvas;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            root.x = centerX;
+            root.y = centerY;
+
+            // Group children by parentId
+            const childrenMap = {};
+            mapNodes.forEach(n => {
+                if (n.parentId) {
+                    if (!childrenMap[n.parentId]) childrenMap[n.parentId] = [];
+                    childrenMap[n.parentId].push(n);
+                }
+            });
+
+            // Radial concentric placement
+            const placementLevel = (nodeId, startAngle, endAngle, radius) => {
+                const children = childrenMap[nodeId] || [];
+                if (children.length === 0) return;
+
+                const parent = mapNodes.find(n => n.id === nodeId);
+                const angleStep = (endAngle - startAngle) / children.length;
+
+                children.forEach((child, idx) => {
+                    const angle = startAngle + (idx * angleStep) + (angleStep / 2);
+                    child.x = parent.x + Math.cos(angle) * radius;
+                    child.y = parent.y + Math.sin(angle) * radius;
+                    
+                    // Recurse to next level
+                    placementLevel(child.id, angle - Math.PI/4, angle + Math.PI/4, radius * 0.75);
+                });
+            };
+
+            placementLevel(root.id, 0, Math.PI * 2, 180);
+        }
+
+        // Force simulation for Knowledge Graph Mode (Basic iterative layout solver)
+        function applyForceLayoutStep() {
+            if (mapLayoutType !== 'knowledge') return;
+
+            // Basic attractive-repulsive physics simulation
+            const k = 120; // optimal distance
+            const repulsion = 4000;
+            const attraction = 0.04;
+            const damping = 0.85;
+
+            // Initialize velocities if needed
+            mapNodes.forEach(n => {
+                if (n.vx === undefined) n.vx = 0;
+                if (n.vy === undefined) n.vy = 0;
+            });
+
+            // 1. Repulsive forces between all nodes
+            for (let i = 0; i < mapNodes.length; i++) {
+                const n1 = mapNodes[i];
+                if (!n1.visible) continue;
+                for (let j = i + 1; j < mapNodes.length; j++) {
+                    const n2 = mapNodes[j];
+                    if (!n2.visible) continue;
+
+                    const dx = n2.x - n1.x;
+                    const dy = n2.y - n1.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                    
+                    if (dist < 400) {
+                        const force = repulsion / (dist * dist);
+                        const fx = (dx / dist) * force;
+                        const fy = (dy / dist) * force;
+
+                        n1.vx -= fx;
+                        n1.vy -= fy;
+                        n2.vx += fx;
+                        n2.vy += fy;
+                    }
+                }
+            }
+
+            // 2. Attractive forces along active structural edges
+            mapEdges.forEach(edge => {
+                const source = mapNodes.find(n => n.id === edge.source);
+                const target = mapNodes.find(n => n.id === edge.target);
+
+                if (source && target && source.visible && target.visible) {
+                    const dx = target.x - source.x;
+                    const dy = target.y - source.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                    
+                    const force = attraction * (dist - k);
+                    const fx = (dx / dist) * force;
+                    const fy = (dy / dist) * force;
+
+                    source.vx += fx;
+                    source.vy += fy;
+                    target.vx -= fx;
+                    target.vy -= fy;
+                }
+            });
+
+            // 3. Central gravity pull to keep nodes from flying off
+            const canvas = ui.mindmapCanvas;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            mapNodes.forEach(n => {
+                if (n.id === 'root') {
+                    // Pull root gently to center
+                    n.vx += (centerX - n.x) * 0.05;
+                    n.vy += (centerY - n.y) * 0.05;
+                } else {
+                    n.vx += (centerX - n.x) * 0.01;
+                    n.vy += (centerY - n.y) * 0.01;
+                }
+            });
+
+            // Update positions
+            mapNodes.forEach(n => {
+                if (n === draggedNode) return; // ignore physics on currently dragged node
+                n.x += n.vx;
+                n.y += n.vy;
+                n.vx *= damping;
+                n.vy *= damping;
+            });
+        }
+
+        // --- RENDER MINDP MAP CANVAS GRAPH ---
+        function renderMap() {
+            const canvas = ui.mindmapCanvas;
+            const ctx = canvas.getContext('2d');
+            
+            // Clear view
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save();
+            // Apply scale & translation transformations
+            ctx.translate(mapOffset.x, mapOffset.y);
+            ctx.scale(mapScale, mapScale);
+
+            const isDark = document.documentElement.classList.contains('dark');
+
+            // Draw link connections first (below nodes)
+            mapEdges.forEach(edge => {
+                const source = mapNodes.find(n => n.id === edge.source);
+                const target = mapNodes.find(n => n.id === edge.target);
+
+                if (source && target && source.visible && target.visible) {
+                    ctx.beginPath();
+                    ctx.moveTo(source.x, source.y);
+                    ctx.lineTo(target.x, target.y);
+                    
+                    // Cross relationship representation
+                    if (edge.label || edge.confidence) {
+                        ctx.strokeStyle = 'rgba(147, 51, 234, 0.45)'; // Purple for cross linkages
+                        ctx.lineWidth = 1.5;
+                        ctx.setLineDash([4, 4]);
+                    } else {
+                        ctx.strokeStyle = isDark ? '#374151' : '#d1d5db';
+                        ctx.lineWidth = 2;
+                        ctx.setLineDash([]);
+                    }
+                    ctx.stroke();
+
+                    // Render relation text labels if Knowledge Graph mode selected
+                    if (mapLayoutType === 'knowledge' && (edge.label || edge.confidence)) {
+                        ctx.save();
+                        const midX = (source.x + target.x) / 2;
+                        const midY = (source.y + target.y) / 2;
+                        
+                        ctx.fillStyle = '#9333ea';
+                        ctx.font = 'bold 9px Inter, sans-serif';
+                        ctx.textAlign = 'center';
+                        
+                        let labelText = edge.label || "Relationship";
+                        if (edge.confidence) labelText += ` (${edge.confidence}% AI confidence)`;
+                        
+                        ctx.fillText(labelText, midX, midY - 4);
+                        ctx.restore();
+                    }
+                }
+            });
+
+            // Draw nodes
+            mapNodes.forEach(node => {
+                if (!node.visible) return;
+
+                ctx.save();
+                ctx.translate(node.x, node.y);
+
+                // Set node background colors
+                let colorTheme = '#3b82f6'; // Blue
+                let hoverStroke = '#2563eb';
+
+                switch(node.color) {
+                    case 'red':
+                        colorTheme = '#ef4444';
+                        hoverStroke = '#b91c1c';
+                        break;
+                    case 'yellow':
+                        colorTheme = '#f59e0b';
+                        hoverStroke = '#b45309';
+                        break;
+                    case 'green':
+                        colorTheme = '#10b981';
+                        hoverStroke = '#047857';
+                        break;
+                }
+
+                // Draw Circle shadow & fill
+                ctx.beginPath();
+                ctx.arc(0, 0, node.radius, 0, Math.PI * 2);
+                ctx.fillStyle = colorTheme;
+                ctx.fill();
+
+                // Highlight active selected node
+                if (selectedNode === node) {
+                    ctx.lineWidth = 5;
+                    ctx.strokeStyle = isDark ? '#f3f4f6' : '#1f2937';
+                } else {
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = '#ffffff';
+                }
+                ctx.stroke();
+
+                // Text Formatting
+                ctx.fillStyle = '#ffffff';
+                ctx.font = node.type === 'root' ? 'bold 10px Inter, sans-serif' : '500 9px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                // Wrapping long text inside node circle
+                const words = (node.label || '').split(' ');
+                let line = '';
+                let yOffset = -5;
+                
+                words.forEach(word => {
+                    if ((line + word).length > 12) {
+                        ctx.fillText(line, 0, yOffset);
+                        line = word + ' ';
+                        yOffset += 10;
+                    } else {
+                        line += word + ' ';
+                    }
+                });
+                ctx.fillText(line, 0, yOffset);
+
+                // Collapse indicator badge
+                if (node.collapsed) {
+                    ctx.beginPath();
+                    ctx.arc(0, node.radius - 2, 5, 0, Math.PI * 2);
+                    ctx.fillStyle = '#374151';
+                    ctx.fill();
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 8px Inter';
+                    ctx.fillText('+', 0, node.radius - 2);
+                }
+
+                ctx.restore();
+            });
+
+            ctx.restore();
+
+            // Loop layout steps for force simulation
+            if (mapLayoutType === 'knowledge') {
+                applyForceLayoutStep();
+                requestAnimationFrame(renderMap);
+            }
+        }
+
+        // Interactive Map Control Bindings
+        function onMapMouseDown(e) {
+            const canvas = ui.mindmapCanvas;
+            const rect = canvas.getBoundingClientRect();
+            const clickX = (e.clientX - rect.left - mapOffset.x) / mapScale;
+            const clickY = (e.clientY - rect.top - mapOffset.y) / mapScale;
+
+            // Check if node is clicked
+            let clicked = null;
+            for (let node of mapNodes) {
+                if (!node.visible) continue;
+                const dist = Math.sqrt((node.x - clickX)**2 + (node.y - clickY)**2);
+                if (dist <= node.radius) {
+                    clicked = node;
+                    break;
+                }
+            }
+
+            if (clicked) {
+                draggedNode = clicked;
+                selectedNode = clicked;
+                openNodeDrawer(clicked);
+                renderMap();
+            } else {
+                isDraggingMap = true;
+                dragStart.x = e.clientX - mapOffset.x;
+                dragStart.y = e.clientY - mapOffset.y;
+            }
+        }
+
+        function onMapMouseMove(e) {
+            if (isDraggingMap) {
+                mapOffset.x = e.clientX - dragStart.x;
+                mapOffset.y = e.clientY - dragStart.y;
+                renderMap();
+            } else if (draggedNode) {
+                const canvas = ui.mindmapCanvas;
+                const rect = canvas.getBoundingClientRect();
+                draggedNode.x = (e.clientX - rect.left - mapOffset.x) / mapScale;
+                draggedNode.y = (e.clientY - rect.top - mapOffset.y) / mapScale;
+                renderMap();
+            }
+        }
+
+        function onMapMouseUp() {
+            isDraggingMap = false;
+            draggedNode = null;
+        }
+
+        function onMapWheel(e) {
+            e.preventDefault();
+            const zoomFactor = e.deltaY < 0 ? 1.05 : 0.95;
+            mapZoom(zoomFactor);
+        }
+
+        function mapZoom(factor) {
+            mapScale = Math.max(0.3, Math.min(3.0, mapScale * factor));
+            renderMap();
+        }
+
+        function mapRecenter() {
+            const canvas = ui.mindmapCanvas;
+            mapScale = 1.0;
+            mapOffset = { x: 0, y: 0 };
+            
+            // Reposition root back to canvas coordinates center
+            const root = mapNodes.find(n => n.id === 'root');
+            if (root) {
+                root.x = canvas.width / 2;
+                root.y = canvas.height / 2;
+                calculateTreePositions();
+            }
+            renderMap();
+        }
+
+        function setMapLayout(layout) {
+            mapLayoutType = layout;
+            
+            document.getElementById('btnMindMapMode').className = layout === 'mindmap' 
+                ? 'px-3 py-1 text-xs font-semibold rounded-md bg-white dark:bg-zinc-700 text-gray-850 dark:text-white shadow-sm transition-all'
+                : 'px-3 py-1 text-xs font-semibold rounded-md text-gray-500 dark:text-gray-400 transition-all';
+                
+            document.getElementById('btnKnowledgeGraphMode').className = layout === 'knowledge'
+                ? 'px-3 py-1 text-xs font-semibold rounded-md bg-white dark:bg-zinc-700 text-gray-850 dark:text-white shadow-sm transition-all'
+                : 'px-3 py-1 text-xs font-semibold rounded-md text-gray-500 dark:text-gray-400 transition-all';
+
+            if (layout === 'mindmap') {
+                calculateTreePositions();
+            }
+            renderMap();
+        }
+
+        function onMapDblClick(e) {
+            const canvas = ui.mindmapCanvas;
+            const rect = canvas.getBoundingClientRect();
+            const clickX = (e.clientX - rect.left - mapOffset.x) / mapScale;
+            const clickY = (e.clientY - rect.top - mapOffset.y) / mapScale;
+
+            let clicked = null;
+            for (let node of mapNodes) {
+                if (!node.visible) continue;
+                const dist = Math.sqrt((node.x - clickX)**2 + (node.y - clickY)**2);
+                if (dist <= node.radius) {
+                    clicked = node;
+                    break;
+                }
+            }
+
+            if (clicked && clicked.id !== 'root') {
+                toggleCollapseNode(clicked.id);
+            }
+        }
+
+        function toggleCollapseNode(nodeId) {
+            const node = mapNodes.find(n => n.id === nodeId);
+            if (!node) return;
+
+            node.collapsed = !node.collapsed;
+
+            // Hide/Show all transitive children recursively
+            const setVisibility = (parentId, visible) => {
+                mapNodes.forEach(n => {
+                    if (n.parentId === parentId) {
+                        n.visible = visible;
+                        // propagate recursively
+                        setVisibility(n.id, visible && !n.collapsed);
+                    }
+                });
+            };
+
+            setVisibility(nodeId, !node.collapsed);
+            renderMap();
+        }
+
+        // Drawer Side-panel Controllers
+        function openNodeDrawer(node) {
+            ui.nodeDrawerTitle.textContent = node.label;
+            ui.nodeDrawerSummary.textContent = node.summary || "No automated summary generated.";
+            ui.nodeDrawerDetails.textContent = node.details || "No additional AI analysis recorded.";
+            
+            // Set Color Badge
+            ui.nodeBadge.textContent = node.type.toUpperCase();
+            let badgeBg = "bg-blue-100 text-blue-700";
+            if (node.color === 'red') badgeBg = "bg-red-100 text-red-700";
+            else if (node.color === 'yellow') badgeBg = "bg-amber-100 text-amber-700";
+            else if (node.color === 'green') badgeBg = "bg-green-100 text-green-700";
+            ui.nodeBadge.className = `text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${badgeBg}`;
+
+            // Check and draw Relationship linkages (cause-effect dependencies)
+            ui.nodeDrawerConfidence.innerHTML = '';
+            const connections = mapEdges.filter(e => e.source === node.id || e.target === node.id);
+            
+            if (connections.length > 0) {
+                connections.forEach(edge => {
+                    const sourceNode = mapNodes.find(n => n.id === edge.source);
+                    const targetNode = mapNodes.find(n => n.id === edge.target);
+                    
+                    if (sourceNode && targetNode) {
+                        const relDiv = document.createElement('div');
+                        relDiv.className = 'p-2 bg-gray-55 dark:bg-zinc-800 rounded border border-gray-150 dark:border-zinc-700';
+                        relDiv.innerHTML = `
+                            <div class="flex justify-between font-semibold text-gray-700 dark:text-gray-300">
+                                <span>${sourceNode.label} ➜ ${targetNode.label}</span>
+                                ${edge.confidence ? `<span class="text-[10px] text-purple-600 font-bold">${edge.confidence}% confidence</span>` : ''}
+                            </div>
+                            ${edge.label ? `<p class="text-[10px] text-gray-500 mt-1">Impact Connection: ${edge.label}</p>` : ''}
+                        `;
+                        ui.nodeDrawerConfidence.appendChild(relDiv);
+                    }
+                });
+                document.getElementById('nodeDrawerConfidenceArea').classList.remove('hidden');
+            } else {
+                document.getElementById('nodeDrawerConfidenceArea').classList.add('hidden');
+            }
+
+            ui.nodeDetailDrawer.classList.remove('translate-x-96');
+        }
+
+        function closeNodeDrawer() {
+            ui.nodeDetailDrawer.classList.add('translate-x-96');
+            selectedNode = null;
+            renderMap();
+        }
+
+        function toggleMapExportDropdown() {
+            const el = document.getElementById('mapExportDropdown');
+            el.classList.toggle('hidden');
+        }
+
+        // Export Functions
+        function exportMap(format) {
+            toggleMapExportDropdown();
+            const canvas = ui.mindmapCanvas;
+
+            if (format === 'json') {
+                const doc = documents.find(d => d.id === activeDocId);
+                const text = JSON.stringify(doc.mindMapData, null, 2);
+                const blob = new Blob([text], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `mindmap_${doc.name.replace(/\.[^/.]+$/, "")}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast("JSON Structure exported!", "success");
+            } else if (format === 'png') {
+                const dataUrl = canvas.toDataURL("image/png");
+                const a = document.createElement('a');
+                a.href = dataUrl;
+                a.download = `mindmap_${activeDocId}.png`;
+                a.click();
+                showToast("PNG exported successfully!", "success");
+            } else if (format === 'pdf') {
+                // PDF print layout
+                const dataUrl = canvas.toDataURL("image/png");
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`
+                    <html>
+                    <head><title>DBNotebook AI Mind Map PDF Export</title></head>
+                    <body style="margin:0; display:flex; align-items:center; justify-content:center; height:100vh;">
+                        <img src="${dataUrl}" style="max-width:100%; max-height:100%; object-fit:contain;" onload="window.print();window.close();"/>
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
+            }
+        }
+
+        // --- AI PRESENTATION WORKSPACE ENGINE ---
+        async function generateAIPresentation() {
+            const doc = documents.find(d => d.id === activeDocId);
+            if (!doc) return;
+
+            const presGenSpinner = document.getElementById('presGenSpinner');
+            presGenSpinner.classList.remove('hidden');
+            showToast("Generating Minimalistic Slide Deck...", "info");
+
+            const currentKey = ui.apiKeyInput.value.trim() || apiKey;
+            if (!currentKey) {
+                // FALLBACK OFFLINE PRESENTATION GENERATOR
+                doc.presentationData = generateOfflineSlides(doc);
+                loadPresentationData(doc.presentationData);
+                presGenSpinner.classList.add('hidden');
+                showToast("Synthesized slide deck presentation offline.", "success");
+                return;
+            }
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${currentKey}`;
+                const prompt = `Synthesize a clean database presentation based on report logs: "${doc.name}".
+Create an 8-slide structured configuration representing the findings.
+
+EXTRACTED AUDIT TEXT:
+${doc.textContent.substring(0, 25000)}
+
+Your response must be returned strictly structured as a valid JSON array of objects representing slides.
+Each slide object must include:
+  - slideNum: integer 1 through 8
+  - title: string representing Slide Main Title
+  - headerTopic: string indicating top category
+  - bullets: array of strings containing clear, concise, minimalistic bullet points (keep bullet text short)
+  - footerNote: string indicating page footer note
+
+Ensure there are exactly 8 slides covering:
+Slide 1: Presentation Title
+Slide 2: Executive Summary
+Slide 3: Key Performance Findings
+Slide 4: System Resource Metrics (CPU, Memory, Tablespace)
+Slide 5: Discovered Critical Warnings
+Slide 6: DBA Priority Recommendations
+Slide 7: Performance Trend Forecasting
+Slide 8: Concluding Summary Action Plan`;
+
+                const payload = {
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "ARRAY",
+                            items: {
+                                type: "OBJECT",
+                                properties: {
+                                    slideNum: { type: "INTEGER" },
+                                    title: { type: "STRING" },
+                                    headerTopic: { type: "STRING" },
+                                    bullets: {
+                                        type: "ARRAY",
+                                        items: { type: "STRING" }
+                                    },
+                                    footerNote: { type: "STRING" }
+                                },
+                                required: ["slideNum", "title", "headerTopic", "bullets", "footerNote"]
+                            }
+                        }
+                    },
+                    contents: [{ parts: [{ text: prompt }] }]
+                };
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error("API Slides failed");
+                const data = await response.json();
+                const jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                doc.presentationData = JSON.parse(jsonText);
+                loadPresentationData(doc.presentationData);
+                showToast("AI Presentation deck parsed successfully!", "success");
+            } catch (err) {
+                console.error("Presentation Generation Error:", err);
+                doc.presentationData = generateOfflineSlides(doc);
+                loadPresentationData(doc.presentationData);
+            } finally {
+                presGenSpinner.classList.add('hidden');
+            }
+        }
+
+        function generateOfflineSlides(doc) {
+            const m = doc.metrics;
+            return [
+                {
+                    slideNum: 1,
+                    title: `Database Diagnostics Audit Profile`,
+                    headerTopic: "Advisory Presentation",
+                    bullets: [
+                        `Database Audit Report: ${doc.name}`,
+                        `Current Estimated Health Performance Score: ${m.healthScore}/100`,
+                        `Generated via DBNotebook local heuristics module`
+                    ],
+                    footerNote: "DBNotebook AI Advisor Engine"
+                },
+                {
+                    slideNum: 2,
+                    title: "Executive Summary Snapshot",
+                    headerTopic: "Executive Summary",
+                    bullets: [
+                        "Database workload coefficients mapped using offline log parsing.",
+                        "Identified resource allocations across standard hardware dimensions.",
+                        "Storage analysis evaluated for space exhaustion limits."
+                    ],
+                    footerNote: "Overview Analysis"
+                },
+                {
+                    slideNum: 3,
+                    title: "Key Performance Metrics",
+                    headerTopic: "Resource Statistics",
+                    bullets: [
+                        `Average Peak CPU utilization: ${m.cpu}%`,
+                        `Memory Buffer Cache allocations: ${m.memory}%`,
+                        `Uptime Availability Ratio: ${m.availability}%`
+                    ],
+                    footerNote: "Instance Statistics"
+                },
+                {
+                    slideNum: 4,
+                    title: "Discovered Critical Warnings",
+                    headerTopic: "Diagnostic Alerts",
+                    bullets: [
+                        m.cpu > 75 ? "Alert: CPU threshold exceeding healthy limits." : "CPU sizing levels within bounds.",
+                        m.tablespace > 85 ? "Alert: Storage tablespace full limits exceeded." : "Storage limits healthy.",
+                        m.blocking > 0 ? `Alert: ${m.blocking} locks actively blocking connections.` : "Locking tree contains no exclusive blocks."
+                    ],
+                    footerNote: "Warning Alert Log"
+                },
+                {
+                    slideNum: 5,
+                    title: "Advisory Action Recommendations",
+                    headerTopic: "DBA Action Plan",
+                    bullets: [
+                        "Examine wait statements and heavy SQL statements.",
+                        "SGA and memory cache configuration optimization.",
+                        "Tablespace scaling adjustments to prevent exhaustion risks."
+                    ],
+                    footerNote: "Remediation Guide"
+                }
+            ];
+        }
+
+        function loadPresentationData(slides) {
+            if (!slides || slides.length === 0) return;
+            activeSlides = slides;
+            currentSlideIndex = 0;
+            renderCurrentSlide();
+        }
+
+        function renderCurrentSlide() {
+            if (activeSlides.length === 0) return;
+            const slide = activeSlides[currentSlideIndex];
+            const doc = documents.find(d => d.id === activeDocId);
+
+            ui.slideCurrent.textContent = currentSlideIndex + 1;
+            ui.slideTitle.textContent = slide.title;
+            ui.slideHeaderTopic.textContent = slide.headerTopic;
+            ui.slideHeaderPage.textContent = `SLIDE 0${currentSlideIndex + 1}`;
+            ui.slideFooterReportName.textContent = doc ? doc.name : "--";
+            ui.slideFooterDate.textContent = slide.footerNote || "DBNotebook AI Advisor";
+
+            // Render bullets beautifully
+            ui.slideBody.innerHTML = '';
+            const ul = document.createElement('ul');
+            ul.className = 'list-disc pl-5 space-y-3 font-sans text-gray-800 dark:text-gray-200 text-base md:text-lg';
+            
+            slide.bullets.forEach(b => {
+                const li = document.createElement('li');
+                li.innerHTML = b.replace(/`([^`]+)`/g, '<code class="bg-gray-100 dark:bg-zinc-800 px-1 py-0.5 rounded font-mono text-sm font-semibold text-arxiv-red dark:text-red-400">$1</code>');
+                ul.appendChild(li);
+            });
+            ui.slideBody.appendChild(ul);
+        }
+
+        function prevSlide() {
+            if (currentSlideIndex > 0) {
+                currentSlideIndex--;
+                renderCurrentSlide();
+            }
+        }
+
+        function nextSlide() {
+            if (currentSlideIndex < activeSlides.length - 1) {
+                currentSlideIndex++;
+                renderCurrentSlide();
+            }
+        }
+
+        function playSlideshowFullscreen() {
+            const viewer = document.getElementById('presentationSlideDeck');
+            if (viewer.requestFullscreen) {
+                viewer.requestFullscreen();
+            } else if (viewer.webkitRequestFullscreen) {
+                viewer.webkitRequestFullscreen();
+            }
+        }
+
+        function generateSlidesFromActiveMap() {
+            const doc = documents.find(d => d.id === activeDocId);
+            if (!doc || !doc.mindMapData) return;
+            
+            // Map major branches to slides automatically
+            showToast("Generating Presentation deck directly from Mind Map...", "info");
+            
+            const branches = doc.mindMapData.nodes.filter(n => n.parentId === 'root' || n.type === 'general');
+            const slides = [
+                {
+                    slideNum: 1,
+                    title: `Database Diagnostic Mind Map Review`,
+                    headerTopic: "Diagnostic Presentation",
+                    bullets: [
+                        `Primary Topic: ${doc.name}`,
+                        `Explored directly from AI Node Relationships`,
+                        `Check structural details inside Workspace View`
+                    ],
+                    footerNote: "Dynamic Mind Map Generation"
+                }
+            ];
+
+            branches.forEach((branch, idx) => {
+                const subNodes = doc.mindMapData.nodes.filter(n => n.parentId === branch.id);
+                const bullets = subNodes.map(sn => `${sn.label}: ${sn.summary}`);
+                
+                slides.push({
+                    slideNum: idx + 2,
+                    title: branch.label,
+                    headerTopic: "Mind Map Branch Analysis",
+                    bullets: bullets.length > 0 ? bullets : [branch.summary],
+                    footerNote: branch.details.substring(0, 50)
+                });
+            });
+
+            doc.presentationData = slides;
+            switchViewerTab('presentation');
+            showToast("Presentation mapped dynamically!", "success");
+        }
+
+        function togglePresExportDropdown() {
+            const el = document.getElementById('presExportDropdown');
+            el.classList.toggle('hidden');
+        }
+
+        // Export Presentation Workspace layouts
+        function exportPresentation(format) {
+            togglePresExportDropdown();
+            const doc = documents.find(d => d.id === activeDocId);
+            if (!doc || !doc.presentationData) return;
+
+            if (format === 'json') {
+                const text = JSON.stringify(doc.presentationData, null, 2);
+                const blob = new Blob([text], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `presentation_${doc.name.replace(/\.[^/.]+$/, "")}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast("JSON Schema deck exported!", "success");
+            } else if (format === 'html') {
+                // Generate a completely clean self-contained HTML slideshow deck file
+                let slidesHtml = '';
+                doc.presentationData.forEach((s, idx) => {
+                    slidesHtml += `
+                        <div class="slide ${idx === 0 ? 'active' : ''}" id="slide-${idx}">
+                            <div class="header">
+                                <span>${s.headerTopic}</span>
+                                <span>SLIDE 0${idx + 1}</span>
+                            </div>
+                            <div class="content">
+                                <h2>${s.title}</h2>
+                                <ul>
+                                    ${s.bullets.map(b => `<li>${b}</li>`).join('')}
+                                </ul>
+                            </div>
+                            <div class="footer">
+                                <span>${doc.name}</span>
+                                <span>${s.footerNote}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                const htmlString = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>${doc.name} - HTML Presentation</title>
+                        <style>
+                            body { margin: 0; background: #0f172a; font-family: system-ui, sans-serif; color: #fff; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+                            .slide { width: 85vw; max-width: 900px; aspect-ratio: 16/9; background: #1e293b; border-radius: 12px; padding: 40px; box-sizing: border-box; display: none; flex-direction: column; justify-content: space-between; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+                            .slide.active { display: flex; }
+                            .header { display: flex; justify-content: space-between; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #f43f5e; font-weight: bold; }
+                            .content h2 { font-size: 32px; margin-bottom: 20px; font-weight: 800; letter-spacing: -0.5px; }
+                            .content ul { font-size: 18px; line-height: 1.8; color: #cbd5e1; }
+                            .footer { display: flex; justify-content: space-between; font-size: 12px; color: #64748b; border-t: 1px solid #334155; padding-top: 15px; }
+                            .controls { position: fixed; bottom: 20px; display: flex; gap: 10px; z-index: 10; }
+                            button { background: #3b82f6; color: white; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+                        </style>
+                    </head>
+                    <body>
+                        ${slidesHtml}
+                        <div class="controls">
+                            <button onclick="change(-1)">Prev</button>
+                            <button onclick="change(1)">Next</button>
+                        </div>
+                        <script>
+                            let cur = 0;
+                            const max = ${doc.presentationData.length};
+                            function change(d) {
+                                document.getElementById('slide-' + cur).classList.remove('active');
+                                cur = (cur + d + max) % max;
+                                document.getElementById('slide-' + cur).classList.add('active');
+                            }
+                        <\/script>
+                    </body>
+                    </html>
+                `;
+
+                const blob = new Blob([htmlString], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `presentation_${doc.name.replace(/\.[^/.]+$/, "")}.html`;
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast("HTML Presentation deck exported successfully!", "success");
+            } else if (format === 'pdf') {
+                // PDF printable layout
+                let slidesPrint = '';
+                doc.presentationData.forEach((s, idx) => {
+                    slidesPrint += `
+                        <div style="width:100%; height:100vh; page-break-after:always; display:flex; flex-direction:column; justify-content:space-between; padding:40px; box-sizing:border-box; font-family:sans-serif;">
+                            <div style="display:flex; justify-content:space-between; font-size:11px; text-transform:uppercase; color:#b31b1b; font-weight:bold;">
+                                <span>${s.headerTopic}</span>
+                                <span>Slide ${idx+1}</span>
+                            </div>
+                            <div style="flex-grow:1; display:flex; flex-direction:column; justify-content:center;">
+                                <h2 style="font-size:32px; margin-bottom:20px;">${s.title}</h2>
+                                <ul style="font-size:18px; line-height:1.6;">
+                                    ${s.bullets.map(b => `<li>${b}</li>`).join('')}
+                                </ul>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; font-size:11px; border-top:1px solid #ddd; padding-top:15px; color:#666;">
+                                <span>${doc.name}</span>
+                                <span>${s.footerNote}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`
+                    <html>
+                    <body style="margin:0;">
+                        ${slidesPrint}
+                        <script>window.print();window.close();<\/script>
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
+            }
+        }
+
+        // --- Comparative Analysis Modal Engine ---
+        function openComparisonModal() {
+            const selectedDocs = documents.filter(d => d.checked);
+            if (selectedDocs.length < 2) return;
+
+            const modal = document.getElementById('comparisonModal');
+            modal.classList.remove('hidden');
+
+            document.getElementById('compHeader1').textContent = selectedDocs[0].name;
+            document.getElementById('compHeader2').textContent = selectedDocs[1].name;
+
+            const tbody = document.getElementById('comparisonTableBody');
+            tbody.innerHTML = '';
+
+            const compareMetrics = [
+                { label: 'Overall Database Health', key: 'healthScore', suffix: '/100' },
+                { label: 'CPU Peak Load', key: 'cpu', suffix: '%' },
+                { label: 'SGA Memory usage', key: 'memory', suffix: '%' },
+                { label: 'Max Tablespace Allocated', key: 'tablespace', suffix: '%' },
+                { label: 'Active User Sessions', key: 'sessions', suffix: '' },
+                { label: 'Exclusive Locking Conflicts', key: 'blocking', suffix: '' },
+                { label: 'Total Instance Uptime', key: 'availability', suffix: '%' }
+            ];
+
+            compareMetrics.forEach(m => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50 dark:hover:bg-zinc-850/30 transition-colors";
+
+                const valA = selectedDocs[0].metrics?.[m.key] !== undefined ? selectedDocs[0].metrics[m.key] : '--';
+                const valB = selectedDocs[1].metrics?.[m.key] !== undefined ? selectedDocs[1].metrics[m.key] : '--';
+
+                let changeClass = "text-gray-500 font-medium";
+                let changeIndicator = "";
+
+                if (typeof valA === 'number' && typeof valB === 'number') {
+                    const diff = valB - valA;
+                    if (diff !== 0) {
+                        const isPositiveBetter = m.key === 'healthScore' || m.key === 'availability';
+                        const improved = isPositiveBetter ? diff > 0 : diff < 0;
+                        changeClass = improved ? 'text-emerald-500 font-bold' : 'text-red-500 font-bold';
+                        changeIndicator = diff > 0 ? ` (+${diff}${m.suffix})` : ` (${diff}${m.suffix})`;
+                    }
+                }
+
+                tr.innerHTML = `
+                    <td class="p-2.5 font-semibold text-gray-750 dark:text-gray-350">${m.label}</td>
+                    <td class="p-2.5 text-gray-600 dark:text-gray-400">${valA}${m.suffix}</td>
+                    <td class="p-2.5 text-gray-800 dark:text-white font-medium">${valB}${m.suffix} <span class="${changeClass} text-[10px] ml-1">${changeIndicator}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            getAIComparisonSummary(selectedDocs);
+        }
+
+        function closeComparisonModal() {
+            document.getElementById('comparisonModal').classList.add('hidden');
+        }
+
+        async function getAIComparisonSummary(selectedDocs) {
+            const container = document.getElementById('aiComparisonFeedback');
+            container.innerHTML = `
+                <div class="flex items-center justify-center gap-2 py-6 italic text-gray-400">
+                    <div class="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    Computing model diff analytics...
+                </div>
+            `;
+
+            const currentKey = ui.apiKeyInput.value.trim() || apiKey;
+            if (!currentKey) {
+                container.innerHTML = `<p class="italic text-gray-400 text-xs">Offline Warning: Configure your Gemini key in the header to synthesize detailed architectural shift analyses between reports.</p>`;
+                return;
+            }
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${currentKey}`;
+                const prompt = `Perform a comprehensive database performance comparison between two uploaded DBA diagnostics reports.
+                
+Report A: ${selectedDocs[0].name}
+Text Extract A:
+${selectedDocs[0].textContent.substring(0, 15000)}
+
+Report B: ${selectedDocs[1].name}
+Text Extract B:
+${selectedDocs[1].textContent.substring(0, 15000)}
+
+Analyze key metric modifications, resource bottleneck variations, potential warnings, resolved items, and advise on optimization priorities. Format using Markdown. Keep it concise but professional.`;
+
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }]
+                };
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error("Compare API failure");
+                const resData = await response.json();
+                const text = resData.candidates?.[0]?.content?.parts?.[0]?.text;
+                container.innerHTML = marked.parse(text || "No insights found.");
+            } catch (err) {
+                container.innerHTML = `<p class="text-red-500 font-sans text-xs">Failed to fetch AI comparison analysis: ${err.message}</p>`;
+            }
+        }
+
+        // --- File Section Export Feature ---
+        function exportSectionToText(sectionType) {
+            let title = "";
+            let data = "";
+
+            if (sectionType === 'recommendations') {
+                const doc = documents.find(d => d.id === activeDocId);
+                if (!doc) return;
+                title = `${doc.name} - Action Plan Checklist`;
+                
+                const list = doc.recommendations || [];
+                data = `Advisory Action Plan recommendations checklist for ${doc.name}\nGenerated on ${new Date().toLocaleString()}\n\n`;
+                list.forEach((r, idx) => {
+                    data += `[${idx + 1}] PRIORITY: ${r.priority.toUpperCase()}\n- ISSUE: ${r.issue}\n- IMPACT: ${r.impact}\n- SUGGESTED ACTION: ${r.action}\n\n`;
+                });
+            } else if (sectionType === 'summary') {
+                const doc = documents.find(d => d.id === activeDocId);
+                if (!doc) return;
+                title = `${doc.name} - Executive Summary`;
+                data = `Executive Summary context for ${doc.name}\nGenerated on ${new Date().toLocaleString()}\n\n${doc.summary}`;
+            } else if (sectionType === 'comparison') {
+                const selectedDocs = documents.filter(d => d.checked);
+                title = `DB_Reports_AI_Comparison`;
+                data = `Multi-Report Differential Comparison sheet\nGenerated on ${new Date().toLocaleString()}\n\n`;
+                selectedDocs.forEach(d => {
+                    data += `Report Title: ${d.name}\n`;
+                    data += `- Health Score: ${d.metrics.healthScore}/100\n`;
+                    data += `- CPU load: ${d.metrics.cpu}%\n`;
+                    data += `- RAM allocations: ${d.metrics.memory}%\n`;
+                    data += `- Tablespace fullness: ${d.metrics.tablespace}%\n`;
+                    data += `- Uptime Availability: ${d.metrics.availability}%\n\n`;
+                });
+                
+                const aiDivText = document.getElementById('aiComparisonFeedback').innerText;
+                data += `### AI Delta Analysis & Warnings:\n${aiDivText}`;
+            }
+
+            // Trigger client-side direct text download
+            const blob = new Blob([data], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title.toLowerCase().replace(/[^a-z0-9]/gi, '_')}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast("Report data successfully exported!", "success");
+        }
+
+        // --- Chat and Agentic Communication Logic ---
+        function appendMessage(role, text) {
+            const wrapper = document.createElement('div');
+            wrapper.className = `flex flex-col items-${role === 'user' ? 'end' : 'start'} max-w-[95%] ${role === 'user' ? 'self-end' : ''}`;
+            
+            const bubble = document.createElement('div');
+            if (role === 'user') {
+                bubble.className = `bg-arxiv-red text-white rounded-lg rounded-tr-none px-4 py-2.5 shadow-sm font-sans font-medium leading-relaxed`;
+                bubble.textContent = text;
+            } else {
+                bubble.className = `bg-gray-100 dark:bg-zinc-850 border border-gray-200 dark:border-zinc-800 text-gray-800 dark:text-gray-200 rounded-lg rounded-tl-none px-4 py-3.5 shadow-sm prose prose-sm dark:prose-invert max-w-none overflow-x-auto w-full leading-relaxed`;
+                bubble.innerHTML = marked.parse(text);
+            }
+            
+            wrapper.appendChild(bubble);
+            ui.chatHistory.appendChild(wrapper);
+            ui.chatHistory.scrollTop = ui.chatHistory.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const text = ui.chatInput.value.trim();
+            if (!text) return;
+
+            const currentKey = ui.apiKeyInput.value.trim() || apiKey;
+            if (!currentKey) {
+                showError("Gemini API Key is required to chat. Please enter it in the header.");
+                ui.apiKeyInput.focus();
+                return;
+            }
+
+            // Update UI
+            ui.chatInput.value = '';
+            ui.chatInput.disabled = true;
+            ui.sendBtn.disabled = true;
+            appendMessage('user', text);
+            
+            // Show typing indicator
+            const typingId = 'typing_' + Date.now();
+            const typingWrapper = document.createElement('div');
+            typingWrapper.id = typingId;
+            typingWrapper.className = `flex flex-col items-start max-w-[95%]`;
+            typingWrapper.innerHTML = `
+                <div class="bg-gray-100 dark:bg-zinc-850 border border-gray-250 dark:border-zinc-850 text-gray-500 rounded-lg rounded-tl-none px-4 py-3 shadow-sm flex items-center gap-1.5">
+                    <div class="w-2 h-2 bg-arxiv-red rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+                    <div class="w-2 h-2 bg-arxiv-red rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+                    <div class="w-2 h-2 bg-arxiv-red rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+                </div>
+            `;
+            ui.chatHistory.appendChild(typingWrapper);
+            ui.chatHistory.scrollTop = ui.chatHistory.scrollHeight;
+
+            try {
+                // Compile combined report background context if available
+                let documentContext = "";
+                if (documents.length > 0) {
+                    documentContext = documents.map(d => 
+                        `--- DATA FOR REPORT: ${d.name} ---\nActive Sessions: ${d.metrics.sessions}, Blocking: ${d.metrics.blocking}, CPU: ${d.metrics.cpu}%, RAM: ${d.metrics.memory}%, Tablespace Fullness: ${d.metrics.tablespace}%\nTEXT DIAGNOSTIC CONTENT:\n${d.textContent.substring(0, 30000)}\n--- END OF REPORT: ${d.name} ---`
+                    ).join('\n\n');
+                }
+
+                // Incorporate dynamic expert modes selector values
+                const currentExpert = ui.expertSelector.value;
+                const expertConfig = expertRoles[currentExpert] || expertRoles.general;
+
+                const systemInstruction = `You are a highly capable agentic assistant. You must intelligently decide how to respond based on the user's query:
+
+1. FOR GENERIC OR GENERAL KNOWLEDGE QUESTIONS (e.g., "who was the first prime minister of India", coding tasks, math, creative writing, science, trivia):
+   - Answer directly and exhaustively using your general knowledge.
+   - Do NOT reference database metrics, documents, or explain that you are a database assistant unless specifically asked about databases. Keep the response relevant to the question asked.
+
+2. FOR QUESTIONS SPECIFICALLY ABOUT THE UPLOADED DOCUMENTS/REPORTS:
+   - Carefully review the provided document context below.
+   - Answer the user's question with technical depth, quoting specific metrics and logs.
+   - CRITICAL PAGE CITATION RULE: You MUST explicitly look for page numbers in the context (marked as "[Page X]") and state which page(s) of which report you extracted the answer from (e.g., "According to [Page 5] of the report..."). Always provide these references if the data is inside the document.
+   - If they ask about database report diagnostics but NO documents are currently uploaded, politely tell them to upload the relevant database PDF reports first.
+
+Adopt this professional background persona: ${expertConfig.systemPrompt}
+
+CURRENT ACTIVE CONTEXT DOCUMENT LOGS:
+${documents.length > 0 ? documentContext : "No documents are currently uploaded."}`;
+
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${currentKey}`;
+                const contextMessages = chatMessages.slice(-10); // maintain context length
+                
+                const payload = {
+                    systemInstruction: { parts: [{ text: systemInstruction }] },
+                    contents: [
+                        ...contextMessages,
+                        { role: "user", parts: [{ text: text }] }
+                    ]
+                };
+
+                let retries = 5;
+                let delay = 1000;
+                let responseData = null;
+
+                while (retries > 0 && !responseData) {
+                    try {
+                        const response = await fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (!response.ok) {
+                            const errData = await response.json();
+                            throw new Error(errData.error?.message || `HTTP error ${response.status}`);
+                        }
+                        
+                        responseData = await response.json();
+                    } catch (err) {
+                        retries--;
+                        if (retries === 0) throw err;
+                        await new Promise(r => setTimeout(r, delay));
+                        delay *= 2;
+                    }
+                }
+
+                const botReply = responseData.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (botReply) {
+                    document.getElementById(typingId).remove();
+                    appendMessage('model', botReply);
+                    
+                    chatMessages.push({ role: "user", parts: [{ text: text }] });
+                    chatMessages.push({ role: "model", parts: [{ text: botReply }] });
+                } else {
+                    throw new Error("No payload candidates returned.");
+                }
+
+            } catch (error) {
+                console.error("Chat API Handshake Error:", error);
+                document.getElementById(typingId).remove();
+                showError(`Error connecting to Gemini API: ${error.message}`);
+            } finally {
+                ui.chatInput.disabled = false;
+                ui.sendBtn.disabled = false;
+                ui.chatInput.focus();
+            }
+        }
+    </script>
+</body>
+</html>
